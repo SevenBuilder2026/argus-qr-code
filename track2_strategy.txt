@@ -1,0 +1,204 @@
+TRACK 2 — HACKATHON STRATEGY
+================================================================================
+Prepared: April 21, 2026 (eve of hackathon)
+================================================================================
+
+
+================================================================================
+THE TWO-SCOPE PRINCIPLE
+================================================================================
+
+BIG SCOPE (this document + track2_architecture.txt):
+  The full ecosystem vision — consumer app, store dashboard, manufacturer
+  analytics, trust aggregation network. Multiple products, all user groups.
+  Purpose: understand the full problem space; answer strategic Q&A confidently;
+  show the jury the product is deeply thought through.
+  NOT presented in full at the hackathon.
+
+SMALL SCOPE (the hackathon deliverable):
+  One user journey, one persona, one core interaction. Defined below.
+  This is all that gets built and demoed on April 22.
+
+
+================================================================================
+WHAT SICPA ALREADY HAS (AND THEREFORE WHAT TO AVOID)
+================================================================================
+
+SICPA has: SICPATRACE® Evo (backend), regional consumer apps (DGDA Connect,
+GRS-SICPA Connect, CalOrigin, Hakiki), Digital Trust Suite (digital identity).
+
+Their apps work. Their problem is they are government-mandated, single-category,
+country-specific. Nobody installs them voluntarily. They generate zero collective
+intelligence — each scan is verified and discarded, no trust network forms.
+
+The UX layer is their blind spot. That is our angle.
+
+
+================================================================================
+THE CORE INSIGHT
+================================================================================
+
+SICPA has the backend. They don't have the front door.
+
+More precisely: they have many front doors (one per country, one per product
+category, all ugly). They have no universal, desirable, consumer-grade front
+door. And they have no trust aggregation — no network that turns individual
+scans into collective intelligence.
+
+We are not competing with their scanning technology.
+We are building the layer on top of it that makes it matter at population scale.
+
+One-line pitch: "You built the vault. We built the bank."
+
+
+================================================================================
+CHOSEN STRATEGY: ANGLE 1 + ANGLE 2 ROADMAP SLIDE
+================================================================================
+
+PRIMARY DEMO — ANGLE 1: "The UX They Never Built"
+
+  Build the consumer scanning experience for the persona SICPA has never
+  designed for: a young adult who scans voluntarily, for their own reasons.
+
+  What makes this different from SICPA's existing apps:
+    a) Guided capture: haptic + visual feedback that solves the CDP precision
+       problem without the user understanding what CDP is.
+    b) Instant, satisfying result: not a government compliance page — a clear,
+       emotional, designed outcome screen.
+    c) Scan contributes to something: the result feeds a trust score for
+       the store the user is standing in. Their scan matters beyond themselves.
+
+  This is the hackathon deliverable. See "What to Build" below.
+
+ROADMAP SLIDE — ANGLE 2: "The Network They're Missing"
+
+  One slide in the pitch deck shows the trust aggregation layer:
+    - Individual scans → anonymized → Store Trust Score
+    - Passive trust for elderly / non-scanning users via Store Discovery
+    - Counterfeit geography map for regulators and brands
+
+  Purpose: show the jury and SICPA that the scanned data has a second life.
+  This is not demoed, only shown conceptually.
+
+
+================================================================================
+WHAT TO BUILD ON APRIL 22
+================================================================================
+
+Single user journey: Young adult, standing in a pharmacy or grocery store,
+scanning a product they're about to buy.
+
+The flow (5 screens):
+
+  1. HOME / TRIGGER
+     Clean single-action screen. One button: "Scan a Product."
+     No account required to start. No onboarding wall.
+
+  2. GUIDED CAPTURE
+     Camera activates. The key UX innovation happens here:
+       - Visual frame guide: aligns user to correct distance/angle.
+       - Haptic feedback: increasing "tick" frequency as capture quality
+         improves (Geiger counter metaphor). No text instructions needed.
+       - Auto-trigger: scan fires automatically when quality threshold met.
+         No shutter button. User just holds steady.
+     This screen is the entire thesis of the demo. Make it feel like magic.
+
+  3. PROCESSING (1–2 seconds)
+     Minimal animation. "Reading security signature..."
+     Mock the SICPA API response here.
+
+  4. RESULT SCREEN
+     Two states:
+       AUTHENTIC: Large green signal. Product name + brand.
+                  "Scanned by 12 people here today." (trust network seed)
+       SUSPICIOUS/FAKE: Clear warning. Report button. Location tag.
+     No legal text. No government compliance language. Designed for humans.
+
+  5. CONTRIBUTION CONFIRMATION (optional, 2 seconds)
+     "Your scan contributed to this store's trust score: 94%."
+     One tap to see the store's full rating. One tap to close.
+     Seeds the idea of the network without requiring the user to do anything.
+
+Mock API contract (define this so the demo is stable):
+  Input:  { image: base64, location: { lat, lng }, product_hint: string }
+  Output: { status: "authentic" | "suspicious" | "fake",
+            confidence: 0.0–1.0,
+            product: { name, brand, batch, manufactured_at },
+            scan_count_here_today: int }
+
+
+================================================================================
+HOW TO PITCH (3 MINUTES)
+================================================================================
+
+Minute 1 — The Problem (30 sec problem, 30 sec SICPA gap)
+  "1 in 10 medicines in developing markets is fake. SICPA has the technology
+  to verify every single one of them. The technology works. The problem is
+  nobody uses it — because the apps built on top of it are designed for
+  governments, not people."
+  [show screenshot of DGDA Connect or GRS-SICPA Connect if permitted]
+
+Minute 2 — The Demo
+  Live demo of the 5-screen flow above. Focus entirely on the guided capture
+  UX — that is the innovation. Say: "Notice there's no shutter button."
+
+Minute 3 — The Bigger Picture
+  "Every scan this person does quietly contributes to a store trust score.
+  The 1% who scan protect the 99% who can't — including their grandparents,
+  who will never scan a CDP code but will benefit from knowing which pharmacy
+  their family uses and trusts."
+  [show the single roadmap slide: trust aggregation diagram]
+  Close: "You built the vault. We built the bank."
+
+
+================================================================================
+WHAT TO SAY IF ASKED ABOUT THE ELDERLY
+================================================================================
+
+"We deliberately chose not to force elderly users to scan. That's a design
+trap — it produces a bad experience for everyone. Instead, we designed the
+network so that younger users scanning for their own reasons passively
+generate trust data that elderly users consume without any action. The
+generational trust relay is social infrastructure, not a feature. We're
+making explicit what families already do informally."
+
+
+================================================================================
+WHAT TO SAY IF ASKED "WHY NOT NFC?"
+================================================================================
+
+"We agree NFC would simplify the capture flow significantly. Our prototype
+targets optical CDP because that's what's on products today. NFC is the right
+long-term direction as hardware costs fall — and our UX layer is agnostic to
+the underlying verification method. If SICPA ships NFC codes tomorrow, this
+app works with them. We plug into their backend, whatever form it takes."
+
+
+================================================================================
+CONTINGENCY: IF SICPA CDP SCANNING IS TOO COMPLEX TO DEMO RELIABLY
+================================================================================
+
+If on the morning of April 22 the CDP capture proves too unreliable to demo
+cleanly (bad lighting, too many failures), pivot immediately:
+
+  Drop the guided capture screen. Replace it with a simple QR scan.
+  The innovation narrative shifts to: "We solved the trust aggregation layer
+  that SICPA's apps are missing. The capture tech is a placeholder for their
+  backend — what we're showing is the network intelligence on top."
+
+  This is Option D from the strategic analysis: "Zero Scan, Full Network."
+  Weaker demo, but still a coherent and differentiated pitch.
+
+
+================================================================================
+WHAT NOT TO BUILD
+================================================================================
+
+  - Gamification (Trust Credits, leaderboards) — optional overlay, cut first
+  - Whistleblower / fake reporting flow — mention in pitch, don't build
+  - Store owner dashboard — mention as roadmap, don't build
+  - Manufacturer analytics portal — architecture only, don't build
+  - Account creation / onboarding — user goes straight to scan
+  - Any explanation of what CDP is — the UX abstracts it completely
+
+================================================================================

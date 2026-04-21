@@ -1,0 +1,343 @@
+TRACK 2 — BIG SCOPE ARCHITECTURE: "TRUST LAYER"
+================================================================================
+A multi-product ecosystem for verifiable product authenticity,
+built on top of SICPA's physical security codes.
+================================================================================
+
+
+================================================================================
+SECTION 1: CORE PROBLEM & TECHNICAL CONSTRAINT
+================================================================================
+
+The Central Tension:
+  Good UX requires simplicity. SICPA's technology requires precision.
+  These are in direct conflict, and this conflict defines the product.
+
+SICPA Code Technology (confirmed pre-event research):
+  - "Money-grade" codes: Copy Detection Patterns (CDP). Confirmed by academic
+    literature and SICPA's own publications.
+  - NOT standard QR codes. Authenticity is encoded in micro-texture and
+    microscopic print variations — a perfect copy is physically impossible.
+    The "information loss principle": every print/scan cycle degrades the
+    pattern; a counterfeit CDP has measurably less entropy than the original.
+  - Verification requires capturing fine detail: sharp focus, good lighting,
+    potentially multiple angles (each angle reveals different signal layers).
+  - Standard casual phone-snapshots will likely FAIL to verify reliably.
+  - CDP can be embedded inside a standard-looking QR code structure to
+    also carry traceability data (product ID, batch, etc.).
+  - Deep learning attacks on CDP are a known and growing threat — this is
+    an active research area, not a solved problem.
+  - Open question: does SICPA's SDK handle multi-angle capture internally,
+    or does the app need to orchestrate it?
+  - Open question: what is the minimum acceptable hardware? Mid-range phone?
+    Flagship only? What about older hardware?
+  - HACKATHON NOTE: No SICPA API will be available on the day. Participants
+    must mock the verification response. This means the UX layer is what
+    is actually being evaluated, not the backend integration.
+
+Implication for UX:
+  We cannot finalize the user journey until we understand the scan complexity.
+  The UX layer must be designed around the SICPA capture requirements,
+  not the other way around. This is the #1 technical risk of the product.
+
+Bulk Scanning:
+  Almost certainly not feasible at the consumer level with optical SICPA codes.
+  CDP requires per-item close-up capture. A store doing inventory at scale
+  would need specialized hardware (industrial scanners, camera rigs).
+  At consumer phone level: one item at a time is the realistic assumption.
+  NFC: SICPA excludes NFC from their own codes (cost + elderly UX concerns).
+  However, SICPA explicitly told hackathon participants that NFC-based solutions
+  or approaches not using SICPA codes at all are welcome — they are open to
+  alternative verification vectors.
+
+
+================================================================================
+SECTION 2: ECOSYSTEM ACTORS & MOTIVES
+================================================================================
+
+LAYER 1 — INFRASTRUCTURE
+
+  SICPA
+    Role:    Provides physical security codes (CDP inks), verification backend,
+             and enterprise track-and-trace platform (SICPATRACE® Evo).
+    Wants:   Broad adoption of their codes by manufacturers. More codes in
+             circulation = more licensing revenue. Consumer apps are a demand
+             driver, not a direct revenue source for them.
+    Fears:   Being bypassed by cheaper alternatives (e.g. standard QR +
+             blockchain). Complexity of their codes becoming a UX barrier
+             that kills consumer adoption before it starts.
+    Gives us: Code samples, technical constraints. No live API on hackathon day.
+
+    What SICPA already has (confirmed by research):
+      - SICPATRACE® Evo: mature B2G/B2B track-and-trace for tobacco, pharma,
+        cannabis, food. Deployed in multiple countries.
+      - Regional consumer apps: DGDA Connect (Congo), GRS-SICPA Connect
+        (Georgia), CalOrigin (California cannabis), Hakiki (Tanzania).
+        All are government-mandated, single-category, country-specific
+        white labels of the same backend. None are general-purpose or
+        consumer-desirable — people use them because law requires it.
+      - Digital Trust Suite: newer layer based on W3C Verifiable Credentials,
+        DIDs, OpenID4VC. Targeted at digital identity, not physical scanning.
+        Public API at api.dip.sicpa.com / docs.dip.sicpa.com.
+
+    What SICPA does NOT have:
+      - A universal, cross-category consumer app anyone would install voluntarily.
+      - A network-effect / trust aggregation layer (each scan is discarded after
+        verification — zero collective intelligence generated).
+      - A guided capture UX designed around CDP's precision requirements.
+      - Passive trust for users who cannot or will not scan.
+      - A solution for the elderly / low-literacy / low-connectivity segments.
+
+  Regulators / Governments
+    Role:    Define compliance requirements (EU Battery Regulation, pharma
+             traceability directives, food safety laws, etc.).
+    Wants:   Verifiable supply chain data, fraud detection, consumer protection.
+    Fears:   Enforcement gaps; systems that look compliant but aren't.
+    Relationship: They create the mandate that pushes manufacturers to adopt
+             SICPA codes. They are not app users, but they are the reason the
+             whole ecosystem exists.
+
+LAYER 2 — SUPPLY CHAIN
+
+  Legitimate Goods Manufacturers
+    Who:     Pharma companies, food brands, luxury goods, electronics OEMs,
+             aviation parts suppliers.
+    Wants:   Proof of authenticity for their products. Brand protection.
+             Regulatory compliance. Competitive differentiation ("scan to verify").
+    Fears:   Counterfeits damaging their brand reputation and customer health.
+    Pays:    SICPA for codes on packaging/products.
+    App role: May have a manufacturer dashboard to monitor scan activity,
+             geographic distribution of fakes detected, etc.
+
+  Counterfeit Goods Producers
+    Who:     Adversaries. Black market manufacturers, organized crime.
+    Wants:   Maximum profit with minimum detection.
+    Fears:   Consumers scanning and discovering fakes. Stores losing reputation
+             for selling fakes. Regulators getting scan data to locate sources.
+    Behavior: Will attempt to copy codes (physically impossible with CDP),
+             or to flood markets in regions with low scan density.
+    Design implication: The "Whistleblower" flow (user finds a fake and reports
+             it) is valuable precisely because it maps counterfeit geography.
+
+  Distributors / Wholesalers (Mid-Chain)
+    Role:    Move goods between manufacturer and store.
+    Wants:   Not to be caught holding counterfeit stock. Chain of custody proof.
+    Fears:   Liability if fakes pass through their hands.
+    App role: Potentially a B2B scanning workflow — "verify this pallet before
+             accepting delivery." Bulk-ish scanning at this layer is more
+             feasible (controlled environment, dedicated hardware possible).
+
+LAYER 3 — POINT OF SALE
+
+  Store Owners / Retailers
+    Who:     Independent pharmacies, grocery stores, specialty retailers,
+             online marketplaces.
+    Wants:   Customer trust → repeat business. Protection from liability
+             (selling a fake medicine could mean lawsuits). "Certified store"
+             badge as marketing asset.
+    Fears:   Unknowingly stocking counterfeits. Losing customers to distrust.
+    App role: Store-facing dashboard. See their own authenticity rating.
+             Optionally: staff scanning workflow for incoming stock.
+             The "Store Trust Score" passive feature serves them directly.
+    Key insight: Store owners are highly motivated B2B users. They will
+             actively encourage scanning in their store if it benefits them.
+
+LAYER 4 — END CONSUMERS (detailed in Section 3)
+
+
+================================================================================
+SECTION 3: END CONSUMER USER GROUPS
+================================================================================
+
+The fundamental split: Active Scanners vs. Passive Trust Recipients.
+Most people will never scan. They benefit from those who do.
+
+--- GROUP A: YOUNG ADULTS (18–35), TECH-NATIVE ---
+
+  Profile:  Comfortable with QR codes, apps, gamification, social sharing.
+  Motivation:
+    - Curiosity and fun ("what does this do?")
+    - Gamification: scores, streaks, bounties
+    - Social: contributing to a visible trust network
+    - Health/safety for premium or risky products (supplements, street food)
+  Barriers:  Low patience. If scanning takes >5 seconds or fails twice, they stop.
+  Scanning frequency: High, but only if the experience is rewarding.
+  Design for: Fast capture, instant feedback, satisfying success animation,
+             social proof ("you're the 3rd person to scan this today").
+  Key role in ecosystem: They are the "1%" who generate the trust data that
+             the other 99% passively consume.
+
+--- GROUP B: MIDDLE-AGED ADULTS (35–55), PRAGMATIC ---
+
+  Profile:  Use smartphones fluently but not enthusiastically. Motivated by
+             practical safety concerns: medication for children, food safety,
+             expensive purchases.
+  Motivation:
+    - Peace of mind for high-stakes items (medicine, baby food, electronics)
+    - Does not need gamification — a clear "AUTHENTIC ✓" result is enough
+  Barriers:  Will not tolerate confusing UI or repeated scan failures.
+             No interest in leaderboards or social features.
+  Scanning frequency: Occasional, high-intent (specific products they care about).
+  Design for: Minimal UI, single clear outcome screen, no distractions.
+             The UI should almost disappear — just the scan and the result.
+
+--- GROUP C: ELDERLY USERS (65+), PASSIVE ---
+
+  Profile:  Variable smartphone literacy. Most cannot reliably scan even a
+             standard QR code without assistance. Scanning a SICPA code
+             (requiring precise angle, distance, lighting) is extremely unlikely.
+  Motivation:  Health safety (medicines, food), but access to technology is
+             the blocker.
+  Realistic behavior:
+    - Will NOT directly use a scanning app in most cases.
+    - WILL benefit from the "Trusted Store" halo passively — children or
+      grandchildren find them trusted pharmacies, trusted food stores.
+    - Social trust transfer: "My grandson told me this pharmacy is verified,
+      I trust it."
+  Design for: Do not design a direct scanning flow for elderly. Design the
+             Trusted Store discovery feature so that family members can use
+             it on behalf of elderly relatives.
+  Key insight: The generational trust-relay is how elderly users participate
+             in this ecosystem. The product should acknowledge and support
+             this relay rather than trying to force direct usage.
+
+--- GROUP D: HIGH-RISK POPULATION IN LOW-INCOME CONTEXTS ---
+
+  Profile:  Most vulnerable to counterfeit medicines. Often in markets where
+             1 in 10 medicines is substandard (WHO data). Smartphone penetration
+             may be lower; data connectivity may be limited.
+  Motivation:  Life-safety. Verification of medicine authenticity.
+  Barriers:  Device quality (older phones may not meet camera requirements
+             for SICPA CDP scanning). Connectivity. Language/literacy.
+  Design for: Offline-capable result caching. Low-bandwidth mode. The store
+             reputation layer is especially valuable here — if trusted stores
+             are certified, individuals don't need to scan at all.
+
+--- GROUP E: COLLECTORS / ENTHUSIASTS ---
+
+  Profile:  Verify high-value collectibles: trading cards, limited edition
+             goods, luxury items, authenticated memorabilia.
+  Motivation:  Financial — fakes cost them money. Strong personal motivation.
+  Scanning frequency: High, deliberate, patient. Will tolerate complex capture
+             flow if it gives reliable results.
+  Design for: "Expert mode" — show confidence scores, scan quality metrics,
+             detailed provenance data. This group wants transparency.
+
+
+================================================================================
+SECTION 4: PRODUCT COMPONENTS (BIG SCOPE)
+================================================================================
+
+PRODUCT 1 — CONSUMER APP ("PROVE")
+  The primary consumer-facing scanning experience.
+  Sub-flows:
+    a) Quick Scan: point, capture, result. Minimal UI.
+    b) Guided Scan: haptic + visual guidance for difficult codes (SICPA CDP).
+    c) Report a Fake: "Whistleblower" flow — location-tagged counterfeit report.
+    d) Store Discovery: map/list of nearby stores with high trust ratings.
+    e) Scan History: personal log of verified items.
+    f) Trust Credits: gamification layer (optional, non-blocking).
+
+PRODUCT 2 — STORE TRUST DASHBOARD (B2B, RETAILER)
+  Web + mobile dashboard for store owners.
+  Features:
+    a) Real-time trust score (aggregated from consumer scans of their products).
+    b) Fake detection alerts: "3 counterfeit reports flagged at your location."
+    c) "Verified Store" badge/certificate — physical + digital.
+    d) Staff scanning tool: verify incoming stock at delivery.
+
+PRODUCT 3 — MANUFACTURER ANALYTICS PORTAL (B2B, BRAND)
+  For legitimate manufacturers using SICPA codes.
+  Features:
+    a) Geographic heat map of scan activity.
+    b) Counterfeit detection geography — where are fakes appearing?
+    c) Scan success rate — code quality monitoring.
+    d) Regulatory compliance reports.
+
+PRODUCT 4 — SCAN ENGINE / SDK (TECHNICAL CORE)
+  The reusable capture + verification layer.
+  Handles: video buffer capture, frame quality assessment, SICPA API call,
+  result parsing. This is what makes or breaks the entire ecosystem.
+  Everything else is UI on top of this.
+
+  Reality check: SICPA's backend is NOT a clean REST API. It is embedded in
+  their white-label regional apps. There is no public "send image → get result"
+  endpoint. The hackathon requires mocking this response — which means we are
+  effectively designing what the API contract should look like, which is itself
+  valuable IP for SICPA.
+
+  Key open questions (to resolve at hackathon with SICPA):
+    - What angles/lighting does CDP verification require?
+    - Is verification online-only or can results be cached offline?
+    - What is the expected API response time in production?
+    - What confidence thresholds define AUTHENTIC vs. SUSPICIOUS vs. FAKE?
+    - Will SICPA provide physical CDP code samples to scan against?
+
+
+================================================================================
+SECTION 5: TRUST AGGREGATION MODEL
+================================================================================
+
+Individual scans are raw material. Aggregated, they become infrastructure.
+
+Store Trust Score:
+  - Input: anonymized scan results from all users at a given location.
+  - Outputs: 0–100 score, displayed passively to users nearby.
+  - Decay: recent scans weighted higher; stale data decays.
+  - Threshold: minimum N scans required before a score is shown
+    (prevents gaming with few fake scans).
+
+Geographic Counterfeit Map:
+  - Aggregated "fake detected" reports, anonymized by area (not exact location).
+  - Value: regulators, brands, distributors — not directly consumer-facing.
+
+Trust Credit Economy:
+  - Scan = earn credits. High-quality scan = bonus. Fake discovered = bounty.
+  - Credits could unlock: premium scan history, store badges, partner discounts.
+  - Risk: gamification can be gamed. Anti-abuse design required.
+
+
+================================================================================
+SECTION 6: KEY RISKS & OPEN QUESTIONS
+================================================================================
+
+1. SICPA SCAN COMPLEXITY (HIGHEST RISK)
+   Can a standard smartphone camera reliably capture a CDP code well enough
+   for verification? What is the failure rate in real-world conditions?
+   If failure rate is >20%, the entire consumer UX collapses.
+
+2. API LATENCY
+   If verification takes 3+ seconds, the UX must handle waiting gracefully.
+   If it takes 10+ seconds, the product is dead on arrival for casual users.
+
+3. OFFLINE / LOW CONNECTIVITY
+   Can any part of verification work offline? Critical for LMIC markets.
+
+4. CODE PLACEMENT ON PRODUCTS
+   A code buried under cellophane, on a curved surface, or in a dark corner
+   of packaging makes camera capture extremely hard. Who controls this?
+   Manufacturers do — and they may not prioritize scanability.
+
+5. FALSE POSITIVE RATE
+   An authentic item flagged as fake, or a fake passing as authentic.
+   Both destroy trust in the system. What are SICPA's published error rates?
+
+6. ADOPTION CHICKEN-AND-EGG
+   Consumers won't scan if few products have codes.
+   Manufacturers won't add codes if consumers don't scan.
+   SICPA is the entity that breaks this loop — they need enterprise clients first.
+
+7. NO CONSUMER DESIRABILITY IN EXISTING SICPA APPS
+   All of SICPA's current consumer apps exist because governments mandate them.
+   Nobody installs them by choice. This is the core UX gap and the primary
+   opportunity for a hackathon submission to add real value.
+
+8. DEEP LEARNING ATTACKS ON CDP
+   Academic literature confirms that neural networks can now generate plausible
+   fake CDPs that fool original authentication schemes. This is an arms race.
+   Any product built on CDP must assume adversaries will eventually adapt.
+   The trust aggregation network (many scans, cross-validation) is a structural
+   defense: a single sophisticated fake may fool the algorithm, but anomalous
+   scan patterns across a location will surface it.
+
+================================================================================

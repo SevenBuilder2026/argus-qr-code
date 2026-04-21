@@ -10,10 +10,26 @@ by scanning a SICPA security code. Track framed as UX/UI design, but the real
 constraint is SICPA's CDP scanning technology.
 
 ## Current Status
-**Stage 1 built and running.** All 5 screens implemented as a React Native / Expo app.
-Working: camera capture with quality scoring, haptic feedback, mock API, all result states,
-contribution screen with animated trust score. Demo-ready as of April 21, 2026.
-Next session: polish animations, test on physical device at the venue, prepare pitch deck.
+**Stage 2 in progress.** All 5 screens built and running. Guided capture (Screen 2) has been
+significantly improved after physical device testing on April 21, 2026.
+
+Recent changes to CaptureScreen.js:
+- **Correct distance thresholds**: old IDEAL_MIN_AREA_FRAC = 0.18 required the camera to be
+  5.2 cm from the QR code — physically below the iPhone 13 mini's ~12 cm min-focus distance,
+  which is why scans always triggered in the blur zone. New values: IDEAL_MIN = 2% (≈ 15.6 cm),
+  IDEAL_MAX = 3.5% (≈ 11.8 cm, just at focus limit). See comment block in CaptureScreen.js.
+- **Auto-zoom instead of "move closer"**: when the QR is detected but slightly too small
+  (areaFrac >= IDEAL_MIN/1.4 ≈ 0.014), the camera smoothly zooms in up to 1.5× rather than
+  asking the user to lean in. Zoom resets when the QR disappears for >1.8 s.
+- **"Move back" hint persistence**: when the scanner goes silent after seeing a too-close code,
+  the app infers blur (scanner dropout = can't decode = blurry) and holds "Move back" for ~1.8 s
+  instead of resetting to "Point at the product label".
+- **Live QR corner overlay**: static guide frame hides when a QR is actively tracked; four
+  corner brackets animate at the actual detected bounds and share the quality-driven color.
+- **Guide frame alignment**: frame centered in the visible camera band (between vignettes),
+  made slightly rectangular (FRAME_W × FRAME_W × 1.15) so the lower border extends further down.
+
+Next: test on physical device at the venue, prepare pitch deck.
 
 ## The Strategy (read track2_strategy.txt for full detail)
 
@@ -33,7 +49,7 @@ Every scan quietly contributes to a store trust score (seeds the network idea).
 - Min 3: Trust aggregation network as roadmap ("the 1% protect the 99%")
 - Close: "You built the vault. We built the bank."
 
-## The 5 Screens to Build
+## The 5 Screens (all built)
 1. Home — single "Scan a Product" button, no onboarding
 2. Guided Capture — the key innovation: haptic ticks + visual frame + auto-trigger
 3. Processing — "Reading security signature..." (mocked API)

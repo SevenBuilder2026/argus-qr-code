@@ -10,7 +10,7 @@ by scanning a SICPA security code. Track framed as UX/UI design, but the real
 constraint is SICPA's CDP scanning technology.
 
 ## Current Status
-**App complete and demo-ready.** All 6 screens + gamification layer built and running.
+**App complete and demo-ready.** All 7 screens (5 core + 2 optional) + gamification layer built and running.
 Tested on iPhone 13 mini. Next: test on physical device at the venue, prepare pitch deck.
 
 ## The Strategy (read track2_strategy.txt for full detail)
@@ -31,15 +31,24 @@ Every scan quietly contributes to a store trust score (seeds the network idea).
 - Min 3: Trust aggregation network as roadmap ("the 1% protect the 99%")
 - Close: "You built the vault. We built the bank."
 
-## The 6 Screens (all built)
-1. Home — single "Scan a Product" button, no onboarding, no tab bar
+## The 7 Screens (all built)
+Core scan flow (5 screens, linear):
+1. Home — single "Scan a Product" button + "Explore" link; no tab bar
 2. Guided Capture — the key innovation: haptic ticks + visual frame + auto-trigger
 3. Processing — "Reading security signature..." (mocked API)
 4. Result — AUTHENTIC/SUSPICIOUS/COUNTERFEIT + product details + XP pop animation
-5. Trace — supply chain map: polyline across 4 waypoints (Production→Distribution→European Hub→Pharmacy)
-6. Contribution — store trust score + quest badge toasts (slide in from top)
+5. Contribution — store trust score + quest badge toasts (slide in from top)
 
-Tab bar (Scan / Me) is visible only on screens 4–5 and the Profile screen.
+Optional micro-journeys (2 screens):
+- **Trace** — supply chain map reachable from Result; polyline across 4 waypoints
+  (Production→Distribution→European Hub→Pharmacy); continues to Contribution
+- **Explore** — dark map of nearby pharmacies reachable from Home. Green dot = no fakes
+  detected by the community; red dot = fake(s) detected. This is the trust network made
+  visible: every scan any user ever does feeds into these dots. The screen exists to answer
+  "why should I bother scanning?" for users who only glance at the app — and to show judges
+  the aggregation network in action.
+
+Tab bar (Scan / Me) is visible only on screens 4–6 and the Profile screen.
 Home, Capture, and Processing have no tab bar — the UI stays clean until the scan completes.
 
 ## Mocked API Contract
@@ -60,7 +69,7 @@ Implemented. Key design rules (all logic in src/store/xpStore.js):
 ## Two-Scope Principle
 - **Big scope** (track2_architecture.txt): full ecosystem, all user groups, all products.
   For strategic depth and Q&A. Not presented in full.
-- **Small scope** (track2_strategy.txt): the 5-screen flow above. This is what gets built.
+- **Small scope** (track2_strategy.txt): the 5-screen core flow + 2 optional map screens. This is what gets built.
 
 ## Key Facts About SICPA (from pre-event research)
 - CDP = Copy Detection Pattern. Micro-texture encoding. Requires precise capture.
@@ -117,6 +126,7 @@ argus-qr-code/
       TraceScreen.js               — supply chain map (no XP overlay)
       ContributionScreen.js        — trust score + quest badge toasts
       ProfileScreen.js             — Me tab: level, badges, quests
+      ExploreScreen.js             — nearby pharmacy trust map (social narrative screen)
     store/
       xpStore.js                   — awardScan(), loadState(), saveState()
   assets/                          — app icons and splash image

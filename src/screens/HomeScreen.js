@@ -34,7 +34,6 @@ export default function HomeScreen({ navigation }) {
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
 
       <Animated.View style={[styles.container, { opacity: fadeIn }]}>
-        {/* Logo mark */}
         <View style={styles.logoArea}>
           <View style={styles.eyeOuter}>
             <View style={styles.eyeInner} />
@@ -43,7 +42,6 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.tagline}>Product authenticity, everywhere.</Text>
         </View>
 
-        {/* Main CTA */}
         <Animated.View style={[styles.btnWrap, { transform: [{ scale: pulse }] }]}>
           <TouchableOpacity
             style={styles.scanBtn}

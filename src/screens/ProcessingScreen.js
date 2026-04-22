@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, StatusBar, SafeAreaView } from 'react-native';
 import { colors, fonts } from '../theme';
 import { verifyScan } from '../mock/api';
+import XpOverlay from '../components/XpOverlay';
 
 const STEPS = [
   'Reading security signature…',
@@ -54,6 +55,7 @@ export default function ProcessingScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <XpOverlay />
       <View style={styles.container}>
         {/* Ring spinner */}
         <View style={styles.spinnerWrap}>

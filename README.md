@@ -17,9 +17,15 @@ Five-screen user journey: **Home → Guided Capture → Processing → Result �
    brackets track the live detected bounds of the code.
 3. **Processing** — Mocked 1.4–1.8 s API call with step-cycling animation.
 4. **Result** — AUTHENTIC (green) / SUSPICIOUS / COUNTERFEIT, with product details
-   and a "scanned by N people here today" social proof line.
+   and a "scanned by N people here today" social proof line. Earned XP pops onto
+   the screen center with a spring-bounce animation and heavy haptic, then flies to
+   the persistent top-right XP counter.
 5. **Contribution** — Animated store trust score showing how the scan fed the
-   community network.
+   community network. Quest completion toasts slide in from the top.
+
+A **bottom tab bar** (Scan / Me) appears from the Result screen onward. The **Me tab**
+shows level progress, badges (including streaks), and quest completion history.
+XP persists across sessions via AsyncStorage; scans accumulate across 10 levels.
 
 ## Running in development
 
@@ -65,4 +71,5 @@ Each long-press toggles between fake mode and normal. A heavy haptic confirms th
 - React Native 0.81 / Expo SDK 54
 - `expo-camera` — barcode detection + camera preview
 - `expo-haptics` — haptic feedback
-- `@react-navigation/native-stack` — screen navigation
+- `@react-navigation/native-stack` + `@react-navigation/bottom-tabs` — navigation
+- `@react-native-async-storage/async-storage` — persistent XP/game state

@@ -1,18 +1,31 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
+  Easing,
   StatusBar,
   SafeAreaView,
+  ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import XpOverlay from '../components/XpOverlay';
 import { colors, fonts, radius } from '../theme';
 
 export default function ContributionScreen({ navigation, route }) {
-  const { store, status } = route.params ?? {};
+  const {
+    store,
+    leveledUp = false,
+    newLevel = null,
+    newXpTotal = 0,
+    questsCompleted = [],
+  } = route.params ?? {};
+
+  const insets = useSafeAreaInsets();
+
   const storeName = store?.name ?? 'Pharmacie du Maupas';
   const trustScore = store?.trust_score ?? 94;
   const totalScans = store?.total_scans ?? 1247;
@@ -20,6 +33,81 @@ export default function ContributionScreen({ navigation, route }) {
   const scoreAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const dotAnim = useRef(new Animated.Value(0)).current;
+
+  const levelUpScaleAnim = useRef(new Animated.Value(0.8)).current;
+  const levelUpFadeAnim = useRef(new Animated.Value(0)).current;
+  const [showLevelUp, setShowLevelUp] = useState(false);
+
+  const [activeToast, setActiveToast] = useState(null);
+  // Start above screen (negative Y), slide down to 0
+  const toastSlide = useRef(new Animated.Value(-120)).current;
+  const toastFade = useRef(new Animated.Value(0)).current;
+  const toastQueue = useRef([]);
+
+  const scoreColor = trustScore >= 85 ? colors.authentic : trustScore >= 60 ? colors.suspicious : colors.fake;
+
+  const arcWidth = scoreAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  const showNextToast = () => {
+    if (toastQueue.current.length === 0) return;
+    const quest = toastQueue.current.shift();
+    setActiveToast(quest);
+    toastSlide.setValue(-120);
+    toastFade.setValue(0);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Animated.sequence([
+      // Slide down from above, like an iOS notification
+      Animated.parallel([
+        Animated.spring(toastSlide, {
+          toValue: 0,
+          friction: 8,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastFade, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]),
+      Animated.delay(3000),
+      // Slide back up
+      Animated.parallel([
+        Animated.timing(toastSlide, {
+          toValue: -120,
+          duration: 280,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastFade, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]),
+    ]).start(() => {
+      setActiveToast(null);
+      setTimeout(showNextToast, 500);
+    });
+  };
+
+  const triggerRewards = () => {
+    if (questsCompleted.length > 0) {
+      toastQueue.current = [...questsCompleted];
+      showNextToast();
+    }
+  };
+
+  const runLevelUpBanner = () => {
+    setShowLevelUp(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(levelUpScaleAnim, { toValue: 1.0, duration: 350, useNativeDriver: true }),
+        Animated.timing(levelUpFadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+      ]),
+      Animated.delay(2000),
+      Animated.timing(levelUpFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => {
+      setShowLevelUp(false);
+      triggerRewards();
+    });
+  };
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
@@ -30,6 +118,11 @@ export default function ContributionScreen({ navigation, route }) {
       useNativeDriver: false,
     }).start(() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (leveledUp) {
+        runLevelUpBanner();
+      } else {
+        triggerRewards();
+      }
     });
 
     Animated.loop(
@@ -40,86 +133,133 @@ export default function ContributionScreen({ navigation, route }) {
     ).start();
   }, []);
 
-  const arcWidth = scoreAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
-
-  const scoreColor = trustScore >= 85 ? colors.authentic : trustScore >= 60 ? colors.suspicious : colors.fake;
-
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-      <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
 
-        {/* Contribution notice */}
-        <View style={styles.noticeCard}>
-          <Animated.View style={[styles.dot, { opacity: dotAnim }]} />
-          <Text style={styles.noticeText}>
-            Your scan was added to the{'\n'}community trust network
+      <XpOverlay xpTotal={newXpTotal} />
+
+      {/* Level-up banner — drops from top */}
+      {showLevelUp && (
+        <Animated.View
+          style={[
+            styles.levelUpBanner,
+            { opacity: levelUpFadeAnim, transform: [{ scale: levelUpScaleAnim }] },
+          ]}
+        >
+          <Text style={styles.levelUpText}>
+            LEVEL UP — {newLevel?.name ?? ''}
           </Text>
-        </View>
+        </Animated.View>
+      )}
 
-        {/* Store trust score */}
-        <View style={styles.scoreCard}>
-          <Text style={styles.storeName}>{storeName}</Text>
-          <Text style={styles.storeLabel}>Community Trust Score</Text>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
 
-          {/* Score ring / bar */}
-          <View style={styles.scoreRingWrap}>
-            <View style={styles.scoreTrack}>
-              <Animated.View style={[styles.scoreFill, { width: arcWidth, backgroundColor: scoreColor }]} />
-            </View>
-            <Animated.Text style={[styles.scoreNumber, { color: scoreColor }]}>
-              {trustScore}%
-            </Animated.Text>
+          <View style={styles.noticeCard}>
+            <Animated.View style={[styles.dot, { opacity: dotAnim }]} />
+            <Text style={styles.noticeText}>
+              Your scan was added to the{'\n'}community trust network
+            </Text>
           </View>
 
-          <Text style={styles.scanCount}>
-            Based on{' '}
-            <Text style={{ color: colors.accent, fontWeight: '700' }}>
-              {totalScans.toLocaleString()}
-            </Text>{' '}
-            scans
-          </Text>
-        </View>
+          <View style={styles.scoreCard}>
+            <Text style={styles.storeName}>{storeName}</Text>
+            <Text style={styles.storeLabel}>Community Trust Score</Text>
+            <View style={styles.scoreRingWrap}>
+              <View style={styles.scoreTrack}>
+                <Animated.View style={[styles.scoreFill, { width: arcWidth, backgroundColor: scoreColor }]} />
+              </View>
+              <Animated.Text style={[styles.scoreNumber, { color: scoreColor }]}>
+                {trustScore}%
+              </Animated.Text>
+            </View>
+            <Text style={styles.scanCount}>
+              Based on{' '}
+              <Text style={{ color: colors.accent, fontWeight: '700' }}>
+                {totalScans.toLocaleString()}
+              </Text>{' '}
+              scans
+            </Text>
+          </View>
 
-        {/* Explanation */}
-        <View style={styles.explainCard}>
-          <Text style={styles.explainTitle}>Why this matters</Text>
-          <Text style={styles.explainBody}>
-            Every scan anonymously contributes to a store's trust profile.
-            People who don't scan — including elderly family members — benefit
-            from the collective intelligence of those who do.
-          </Text>
-        </View>
+          <View style={styles.explainCard}>
+            <Text style={styles.explainTitle}>Why this matters</Text>
+            <Text style={styles.explainBody}>
+              Every scan anonymously contributes to a store's trust profile.
+              People who don't scan — including elderly family members — benefit
+              from the collective intelligence of those who do.
+            </Text>
+          </View>
 
-        {/* CTA */}
-        <TouchableOpacity
-          style={styles.doneBtn}
-          onPress={() => navigation.navigate('Home')}
+          <TouchableOpacity
+            style={styles.doneBtn}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.doneBtnText}>Done</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => navigation.navigate('Capture')}>
+            <Text style={styles.scanAgainText}>Scan another product</Text>
+          </TouchableOpacity>
+
+        </Animated.View>
+      </ScrollView>
+
+      {/* Quest toast — slides down from top like a notification */}
+      {activeToast && (
+        <Animated.View
+          style={[
+            styles.questToast,
+            {
+              top: insets.top + 46,
+              opacity: toastFade,
+              transform: [{ translateY: toastSlide }],
+            },
+          ]}
         >
-          <Text style={styles.doneBtnText}>Done</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.navigate('Capture')}>
-          <Text style={styles.scanAgainText}>Scan another product</Text>
-        </TouchableOpacity>
-
-      </Animated.View>
+          <Text style={styles.questToastText}>
+            {activeToast.icon} {activeToast.name} — badge earned!
+            {activeToast.completedCount > 1 ? ` ×${activeToast.completedCount}` : ''}
+          </Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flexGrow: 1 },
   container: {
-    flex: 1,
     alignItems: 'center',
     paddingHorizontal: 28,
-    paddingTop: 48,
-    paddingBottom: 40,
-    gap: 20,
+    paddingTop: 36,
+    paddingBottom: 32,
+    gap: 16,
+  },
+
+  levelUpBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    backgroundColor: colors.accentDim,
+    borderBottomWidth: 1.5,
+    borderBottomColor: colors.accent,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  levelUpText: {
+    fontSize: fonts.label,
+    fontWeight: '800',
+    color: colors.accent,
+    letterSpacing: 2,
   },
 
   noticeCard: {
@@ -128,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentDim,
     borderRadius: radius.full,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 10,
     gap: 10,
   },
   dot: {
@@ -150,9 +290,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.bgCardBorder,
-    padding: 24,
+    padding: 20,
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   storeName: {
     fontSize: fonts.label,
@@ -168,8 +308,8 @@ const styles = StyleSheet.create({
   scoreRingWrap: {
     width: '100%',
     alignItems: 'center',
-    gap: 12,
-    marginVertical: 8,
+    gap: 10,
+    marginVertical: 4,
   },
   scoreTrack: {
     width: '100%',
@@ -198,7 +338,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.bgCardBorder,
-    padding: 20,
+    padding: 18,
     gap: 8,
   },
   explainTitle: {
@@ -216,14 +356,13 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: colors.accent,
     borderRadius: radius.full,
-    paddingVertical: 18,
+    paddingVertical: 16,
     alignItems: 'center',
     shadowColor: colors.accent,
     shadowOpacity: 0.3,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
-    marginTop: 4,
   },
   doneBtnText: {
     fontSize: fonts.label,
@@ -234,5 +373,30 @@ const styles = StyleSheet.create({
     fontSize: fonts.small,
     color: colors.textSecondary,
     textDecorationLine: 'underline',
+  },
+
+  questToast: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 200,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.accent + '50',
+    borderRadius: radius.md,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    alignItems: 'center',
+    shadowColor: colors.accent,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  questToastText: {
+    fontSize: fonts.body,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

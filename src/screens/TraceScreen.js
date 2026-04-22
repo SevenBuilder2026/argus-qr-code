@@ -11,7 +11,7 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import XpOverlay from '../components/XpOverlay';
 import { colors, fonts, radius } from '../theme';
 
-const YELLOW = '#FFD700';
+const PURPLE = '#A855F7';
 
 const WAYPOINTS = [
   { id: 1, label: 'Production',    city: 'Shenzhen, China',       lat: 22.5431, lng: 114.0579 },
@@ -78,16 +78,12 @@ export default function TraceScreen({ navigation, route }) {
             longitudeDelta: 130,
           }}
           userInterfaceStyle="dark"
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
+          showsUserLocation={false}
         >
           <Polyline
             coordinates={polylineCoords}
-            strokeColor={YELLOW}
-            strokeWidth={2}
-            lineDashPattern={[8, 5]}
+            strokeColor={PURPLE}
+            strokeWidth={4}
           />
 
           {WAYPOINTS.map(p => (
@@ -97,7 +93,9 @@ export default function TraceScreen({ navigation, route }) {
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >
-              <View style={styles.dot} />
+              <View style={[styles.markerOuter, { borderColor: PURPLE }]}>
+                <View style={[styles.markerInner, { backgroundColor: PURPLE }]} />
+              </View>
             </Marker>
           ))}
 
@@ -108,9 +106,7 @@ export default function TraceScreen({ navigation, route }) {
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >
-              <View style={{ transform: [{ rotate: `${arrow.rotation}deg` }] }}>
-                <Text style={styles.arrowChar}>▲</Text>
-              </View>
+              <View style={[styles.arrowHead, { transform: [{ rotate: `${arrow.rotation}deg` }] }]} />
             </Marker>
           ))}
         </MapView>
@@ -151,23 +147,30 @@ const styles = StyleSheet.create({
   mapWrapper: { flex: 1, position: 'relative' },
   map: { flex: 1 },
 
-  dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: YELLOW,
+  markerOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.bg,
-    shadowColor: YELLOW,
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 4,
+    backgroundColor: 'rgba(8,12,24,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  arrowChar: {
-    fontSize: 11,
-    color: YELLOW,
-    opacity: 0.85,
+  markerInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  arrowHead: {
+    width: 0,
+    height: 0,
+    borderStyle: 'solid',
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 13,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: PURPLE,
   },
 
   topOverlay: {
@@ -208,7 +211,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: YELLOW,
+    backgroundColor: PURPLE,
   },
   chainLabel: {
     fontSize: 10,
@@ -223,7 +226,7 @@ const styles = StyleSheet.create({
   },
   chainArrow: {
     fontSize: fonts.label,
-    color: YELLOW,
+    color: PURPLE,
     opacity: 0.7,
     marginBottom: 6,
   },

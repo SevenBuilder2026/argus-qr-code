@@ -6,6 +6,8 @@ import {
   Dimensions,
   TouchableOpacity,
   Animated,
+  Platform,
+  PixelRatio,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -17,13 +19,33 @@ const FRAME_W = SCREEN_W * 0.72;
 const FRAME_H = FRAME_W * 1.15;
 const VIGNETTE_TOP = 160;
 const VIGNETTE_BOTTOM = 220;
-// Calibrated for iPhone 13 mini + 2 cm × 2 cm QR code:
-//   areaFrac(D) = 4.884 / D²  (D in cm, portrait mode with screen-fill crop)
-//   IDEAL_MIN = 2%  →  D ≈ 15.6 cm  (comfortable, well inside focus limit)
-//   IDEAL_MAX = 3.5%  →  D ≈ 11.8 cm  (just at the ~12 cm min-focus limit)
-// The old value of 0.18 required D ≈ 5.2 cm — physically below the focus limit.
-const IDEAL_MIN_AREA_FRAC = 0.02;
-const IDEAL_MAX_AREA_FRAC = 0.035;
+
+// --- Cross-device distance calibration ---
+// Base formula (iPhone 13 mini + 2 cm × 2 cm QR, portrait):
+//   areaFrac(D) = 4.884 / D²  (D in cm)
+//   IDEAL_MIN = 2%  →  D ≈ 15.6 cm  (comfortable scanning distance)
+//   IDEAL_MAX = 3.5%  →  D ≈ 11.8 cm  (just at iPhone 13 mini's ~12 cm focus limit)
+//
+// Two device variables that differ across phones:
+//   (a) Camera FOV — wider on most Android flagships → smaller areaFrac at the
+//       same physical distance → both thresholds must scale DOWN.
+//       Proxy: PixelRatio (higher-density screens correlate with wider main cameras).
+//         PixelRatio 2.0 (baseline) → FOV_SCALE 1.0
+//         PixelRatio 3.0           → FOV_SCALE ≈ 0.85
+//         PixelRatio 3.5           → FOV_SCALE ≈ 0.78
+//   (b) Minimum focus distance — typical Android: 8–10 cm vs ~12 cm on iPhone
+//       13 mini → IDEAL_MAX can be raised so "Move back" doesn't trigger too early.
+//       MIN_FOCUS_SCALE raises IDEAL_MAX by ~30% on Android.
+//
+// Dynamic adaptation (component-level adaptiveMaxRef): if the scanner successfully
+// decodes a QR above the static IDEAL_MAX, the device can focus at that distance
+// → the ceiling expands in real time to match the actual hardware.
+const _pr = PixelRatio.get();
+const FOV_SCALE = Math.max(0.65, 1.3 - _pr * 0.15);
+const MIN_FOCUS_SCALE = Platform.OS === 'android' ? 1.3 : 1.0;
+
+const IDEAL_MIN_AREA_FRAC = 0.02 * FOV_SCALE;
+const IDEAL_MAX_AREA_FRAC = 0.035 * FOV_SCALE * MIN_FOCUS_SCALE;
 const TRIGGER_THRESHOLD = 82;
 const TRIGGER_HOLD_MS = 500;
 // Maximum zoom value passed to CameraView (0–1 scale).
@@ -31,7 +53,7 @@ const TRIGGER_HOLD_MS = 500;
 const ZOOM_MAX = 0.1;
 // How much zoom to add per barcode callback when QR is still too small.
 const ZOOM_STEP = 0.012;
-// Zoom kicks in when QR is at 1/1.4 of IDEAL_MIN (≈ 18.7 cm).
+// Zoom kicks in when QR is at 1/1.4 of IDEAL_MIN (≈ 18.7 cm at baseline, scales with FOV_SCALE).
 const ZOOM_START_FRAC = IDEAL_MIN_AREA_FRAC / 1.4;
 
 function scoreToInterval(score) {
@@ -39,7 +61,7 @@ function scoreToInterval(score) {
   return Math.round(600 - score * 5.2);
 }
 
-function computeQuality(bounds, screenW, screenH) {
+function computeQuality(bounds, screenW, screenH, idealMin, idealMax) {
   if (!bounds) return { score: 0, areaFrac: 0 };
   const { origin, size } = bounds;
   if (!size || size.width <= 0 || size.height <= 0) return { score: 0, areaFrac: 0 };
@@ -49,14 +71,15 @@ function computeQuality(bounds, screenW, screenH) {
   const areaFrac = bboxArea / screenArea;
 
   let distScore = 0;
-  if (areaFrac >= IDEAL_MIN_AREA_FRAC && areaFrac <= IDEAL_MAX_AREA_FRAC) {
+  if (areaFrac >= idealMin && areaFrac <= idealMax) {
     distScore = 100;
-  } else if (areaFrac < IDEAL_MIN_AREA_FRAC) {
-    distScore = Math.max(0, (areaFrac / IDEAL_MIN_AREA_FRAC) * 80);
+  } else if (areaFrac < idealMin) {
+    distScore = Math.max(0, (areaFrac / idealMin) * 80);
   } else {
-    // Too close: hard cap so trigger is unreachable past IDEAL_MAX_AREA_FRAC.
+    // Too close: hard cap so trigger is unreachable past idealMax.
     // max = 55*0.5 + 100*0.3 + 100*0.2 = 77.5 < TRIGGER_THRESHOLD (82)
-    const over = (areaFrac - IDEAL_MAX_AREA_FRAC) / 0.08;
+    // Band width is proportional to idealMax so it scales with FOV and focus corrections.
+    const over = (areaFrac - idealMax) / (idealMax * 2.3);
     distScore = Math.max(0, 55 - over * 55);
   }
 
@@ -93,6 +116,9 @@ export default function CaptureScreen({ navigation }) {
   const qrOpacity = useRef(new Animated.Value(0)).current;
   // Last known areaFrac: lets us keep "Move back" hint after scanner dropout
   const lastAreaFracRef = useRef(0);
+  // Runtime-calibrated upper bound: expands when the device proves it can focus at a
+  // higher areaFrac than the static IDEAL_MAX (i.e. shorter minimum focus distance).
+  const adaptiveMaxRef = useRef(IDEAL_MAX_AREA_FRAC);
 
   // Zoom animation via requestAnimationFrame lerp.
   // CameraView.zoom is not an Animated prop, so we drive it with JS state.
@@ -170,7 +196,7 @@ export default function CaptureScreen({ navigation }) {
   // Hint: areaFrac > IDEAL_MAX checked first — survives quality decay to 0.
   // "Zooming in…" replaces "Move closer" when auto-zoom is active.
   useEffect(() => {
-    if (areaFrac > IDEAL_MAX_AREA_FRAC) setHint('Move back');
+    if (areaFrac > adaptiveMaxRef.current) setHint('Move back');
     else if (quality === 0) setHint('Point at the product label');
     else if (areaFrac < IDEAL_MIN_AREA_FRAC) {
       setHint(zoomRef.current > 0.02 ? 'Zooming in…' : 'Move closer');
@@ -186,10 +212,17 @@ export default function CaptureScreen({ navigation }) {
       if (Date.now() - (lastScanRef.current ?? 0) < 80) return;
       lastScanRef.current = Date.now();
 
-      const { score: q, areaFrac: frac } = computeQuality(bounds, SCREEN_W, SCREEN_H);
+      const { score: q, areaFrac: frac } = computeQuality(bounds, SCREEN_W, SCREEN_H, IDEAL_MIN_AREA_FRAC, adaptiveMaxRef.current);
       setQuality(q);
       setAreaFrac(frac);
       lastAreaFracRef.current = frac;
+
+      // Dynamic calibration: if the scanner decoded a QR above the current ceiling,
+      // this device can focus at that distance — expand adaptiveMaxRef in real time.
+      // Cap at 0.20 (20% of screen area) to prevent runaway expansion.
+      if (frac > adaptiveMaxRef.current && q > 15) {
+        adaptiveMaxRef.current = Math.min(frac * 1.05, 0.20);
+      }
 
       // Zoom control — only zoom IN when QR is detected but too small.
       // We never zoom OUT based on areaFrac alone (that would oscillate).
@@ -243,7 +276,7 @@ export default function CaptureScreen({ navigation }) {
         Animated.timing(qrOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(
           () => setQrBounds(null)
         );
-        if (lastAreaFracRef.current <= IDEAL_MAX_AREA_FRAC) {
+        if (lastAreaFracRef.current <= adaptiveMaxRef.current) {
           setAreaFrac(0);
         }
       }

@@ -279,6 +279,12 @@ export default function ResultScreen({ navigation, route }) {
             <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
               <Text style={styles.continueBtnText}>Continue</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.traceBtn}
+              onPress={() => navigation.navigate('Trace', { result, scanReward })}
+            >
+              <Text style={styles.traceBtnText}>Trace</Text>
+            </TouchableOpacity>
           </View>
 
         </Animated.View>
@@ -444,5 +450,17 @@ const styles = StyleSheet.create({
     fontSize: fonts.label,
     fontWeight: '700',
     color: colors.bg,
+  },
+  traceBtn: {
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderRadius: radius.full,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  traceBtnText: {
+    fontSize: fonts.body,
+    fontWeight: '600',
+    color: colors.accent,
   },
 });

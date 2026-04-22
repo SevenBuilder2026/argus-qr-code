@@ -42,15 +42,25 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.tagline}>Product authenticity, everywhere.</Text>
         </View>
 
-        <Animated.View style={[styles.btnWrap, { transform: [{ scale: pulse }] }]}>
+        <View style={styles.btnsWrap}>
+          <Animated.View style={{ transform: [{ scale: pulse }] }}>
+            <TouchableOpacity
+              style={styles.scanBtn}
+              onPress={() => navigation.navigate('Capture')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.scanBtnText}>Scan a Product</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
           <TouchableOpacity
-            style={styles.scanBtn}
-            onPress={() => navigation.navigate('Capture')}
-            activeOpacity={0.85}
+            style={styles.exploreBtn}
+            onPress={() => navigation.navigate('Explore')}
+            activeOpacity={0.8}
           >
-            <Text style={styles.scanBtnText}>Scan a Product</Text>
+            <Text style={styles.exploreBtnText}>Explore</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         <Text style={styles.hint}>No account required</Text>
       </Animated.View>
@@ -102,8 +112,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.3,
   },
-  btnWrap: {
+  btnsWrap: {
     width: '100%',
+    gap: 16,
   },
   scanBtn: {
     backgroundColor: colors.accent,
@@ -120,6 +131,19 @@ const styles = StyleSheet.create({
     fontSize: fonts.label,
     fontWeight: '700',
     color: colors.bg,
+    letterSpacing: 0.5,
+  },
+  exploreBtn: {
+    borderRadius: radius.full,
+    paddingVertical: 18,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+  },
+  exploreBtnText: {
+    fontSize: fonts.label,
+    fontWeight: '700',
+    color: colors.accent,
     letterSpacing: 0.5,
   },
   hint: {

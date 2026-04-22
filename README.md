@@ -6,7 +6,7 @@ no account required and no knowledge of the underlying technology.
 
 ## What it does
 
-Five-screen user journey: **Home → Guided Capture → Processing → Result → Contribution**
+Six-screen user journey: **Home → Guided Capture → Processing → Result → Trace → Contribution**
 
 1. **Home** — Single "Scan a Product" CTA. No onboarding.
 2. **Guided Capture** — Live camera with real-time quality scoring. The frame guide
@@ -20,7 +20,10 @@ Five-screen user journey: **Home → Guided Capture → Processing → Result �
    and a "scanned by N people here today" social proof line. Earned XP pops onto
    the screen center with a spring-bounce animation and heavy haptic, then flies to
    the persistent top-right XP counter.
-5. **Contribution** — Animated store trust score showing how the scan fed the
+5. **Trace** — Full-screen dark map showing the product's supply chain route across
+   4 waypoints (Production → Distribution → European Hub → Your Pharmacy), connected
+   by a teal polyline. Tapping Continue proceeds to Contribution.
+6. **Contribution** — Animated store trust score showing how the scan fed the
    community network. Quest completion toasts slide in from the top.
 
 A **bottom tab bar** (Scan / Me) appears from the Result screen onward. The **Me tab**

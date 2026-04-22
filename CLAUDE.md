@@ -10,7 +10,7 @@ by scanning a SICPA security code. Track framed as UX/UI design, but the real
 constraint is SICPA's CDP scanning technology.
 
 ## Current Status
-**App complete and demo-ready.** All 5 screens + gamification layer built and running.
+**App complete and demo-ready.** All 6 screens + gamification layer built and running.
 Tested on iPhone 13 mini. Next: test on physical device at the venue, prepare pitch deck.
 
 ## The Strategy (read track2_strategy.txt for full detail)
@@ -31,12 +31,13 @@ Every scan quietly contributes to a store trust score (seeds the network idea).
 - Min 3: Trust aggregation network as roadmap ("the 1% protect the 99%")
 - Close: "You built the vault. We built the bank."
 
-## The 5 Screens (all built)
+## The 6 Screens (all built)
 1. Home — single "Scan a Product" button, no onboarding, no tab bar
 2. Guided Capture — the key innovation: haptic ticks + visual frame + auto-trigger
 3. Processing — "Reading security signature..." (mocked API)
 4. Result — AUTHENTIC/SUSPICIOUS/COUNTERFEIT + product details + XP pop animation
-5. Contribution — store trust score + quest badge toasts (slide in from top)
+5. Trace — supply chain map: polyline across 4 waypoints (Production→Distribution→European Hub→Pharmacy)
+6. Contribution — store trust score + quest badge toasts (slide in from top)
 
 Tab bar (Scan / Me) is visible only on screens 4–5 and the Profile screen.
 Home, Capture, and Processing have no tab bar — the UI stays clean until the scan completes.
@@ -54,7 +55,7 @@ Implemented. Key design rules (all logic in src/store/xpStore.js):
   Inspector → Guardian → Argus Elite → Argus Master (500+)
 - Streaks are non-punishing: missing a period resets the run to 1 on next scan,
   not to 0. Only the most significant active streak is shown (daily has priority).
-- XP pill overlay visible on all screens except Home and Capture.
+- XP pill overlay visible on all screens except Home, Capture, and Trace.
 
 ## Two-Scope Principle
 - **Big scope** (track2_architecture.txt): full ecosystem, all user groups, all products.
@@ -113,6 +114,7 @@ argus-qr-code/
       CaptureScreen.js             — guided capture with quality scoring
       ProcessingScreen.js
       ResultScreen.js              — scan result + XP pop/fly animation
+      TraceScreen.js               — supply chain map (no XP overlay)
       ContributionScreen.js        — trust score + quest badge toasts
       ProfileScreen.js             — Me tab: level, badges, quests
     store/

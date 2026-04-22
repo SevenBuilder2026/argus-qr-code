@@ -11,6 +11,7 @@ import ProcessingScreen from './src/screens/ProcessingScreen';
 import ResultScreen from './src/screens/ResultScreen';
 import ContributionScreen from './src/screens/ContributionScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import ExploreScreen from './src/screens/ExploreScreen';
 
 import { colors, fonts } from './src/theme';
 
@@ -39,6 +40,7 @@ function ScanStack() {
       <Stack.Screen name="Processing" component={ProcessingScreen} />
       <Stack.Screen name="Result" component={ResultScreen} />
       <Stack.Screen name="Contribution" component={ContributionScreen} />
+      <Stack.Screen name="Explore" component={ExploreScreen} />
     </Stack.Navigator>
   );
 }

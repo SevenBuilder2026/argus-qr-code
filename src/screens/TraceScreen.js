@@ -8,10 +8,7 @@ import {
   StatusBar,
 } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
-import XpOverlay from '../components/XpOverlay';
 import { colors, fonts, radius } from '../theme';
-
-const PURPLE = '#A855F7';
 
 const WAYPOINTS = [
   { id: 1, label: 'Production',    city: 'Shenzhen, China',       lat: 22.5431, lng: 114.0579 },
@@ -20,21 +17,6 @@ const WAYPOINTS = [
   { id: 4, label: 'Your Pharmacy', city: 'Lausanne, Switzerland', lat: 46.5197, lng:   6.6323 },
 ];
 
-function midpoint(a, b) {
-  return { latitude: (a.lat + b.lat) / 2, longitude: (a.lng + b.lng) / 2 };
-}
-
-// Returns bearing in degrees clockwise from North (-180 to 180).
-// '▲' rotated by this value points in the direction of travel.
-function bearing(lat1, lng1, lat2, lng2) {
-  const toRad = d => (d * Math.PI) / 180;
-  const dLng = toRad(lng2 - lng1);
-  const φ1 = toRad(lat1);
-  const φ2 = toRad(lat2);
-  const y = Math.sin(dLng) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dLng);
-  return (Math.atan2(y, x) * 180) / Math.PI;
-}
 
 export default function TraceScreen({ navigation, route }) {
   const { result, scanReward } = route.params ?? {};
@@ -54,19 +36,10 @@ export default function TraceScreen({ navigation, route }) {
 
   const polylineCoords = WAYPOINTS.map(p => ({ latitude: p.lat, longitude: p.lng }));
 
-  const arrows = WAYPOINTS.slice(0, -1).map((a, i) => {
-    const b = WAYPOINTS[i + 1];
-    return {
-      id: i,
-      coordinate: midpoint(a, b),
-      rotation: bearing(a.lat, a.lng, b.lat, b.lng),
-    };
-  });
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
-      <XpOverlay />
 
       <View style={styles.mapWrapper}>
         <MapView
@@ -82,7 +55,7 @@ export default function TraceScreen({ navigation, route }) {
         >
           <Polyline
             coordinates={polylineCoords}
-            strokeColor={PURPLE}
+            strokeColor={colors.accent}
             strokeWidth={4}
           />
 
@@ -93,22 +66,12 @@ export default function TraceScreen({ navigation, route }) {
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
             >
-              <View style={[styles.markerOuter, { borderColor: PURPLE }]}>
-                <View style={[styles.markerInner, { backgroundColor: PURPLE }]} />
+              <View style={[styles.markerOuter, { borderColor: colors.accent }]}>
+                <View style={[styles.markerInner, { backgroundColor: colors.accent }]} />
               </View>
             </Marker>
           ))}
 
-          {arrows.map(arrow => (
-            <Marker
-              key={`arr-${arrow.id}`}
-              coordinate={arrow.coordinate}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
-            >
-              <View style={[styles.arrowHead, { transform: [{ rotate: `${arrow.rotation}deg` }] }]} />
-            </Marker>
-          ))}
         </MapView>
 
         {/* Top info card */}
@@ -161,18 +124,6 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
   },
-  arrowHead: {
-    width: 0,
-    height: 0,
-    borderStyle: 'solid',
-    borderLeftWidth: 7,
-    borderRightWidth: 7,
-    borderBottomWidth: 13,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: PURPLE,
-  },
-
   topOverlay: {
     position: 'absolute',
     top: 12,
@@ -211,7 +162,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: PURPLE,
+    backgroundColor: colors.accent,
   },
   chainLabel: {
     fontSize: 10,
@@ -226,7 +177,7 @@ const styles = StyleSheet.create({
   },
   chainArrow: {
     fontSize: fonts.label,
-    color: PURPLE,
+    color: colors.accent,
     opacity: 0.7,
     marginBottom: 6,
   },

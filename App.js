@@ -26,6 +26,13 @@ const TAB_BAR_STYLE = {
   height: 52,
 };
 
+const TAB_BAR_HIDDEN = {
+  backgroundColor: colors.bg,
+  borderTopColor: colors.bg,
+  height: 0,
+  overflow: 'hidden',
+};
+
 // Tab bar only appears once the user has completed a scan (Result + onward)
 const SHOW_TAB_ON = ['Result', 'Contribution'];
 
@@ -70,7 +77,7 @@ export default function App() {
                 tabBarIcon: ({ color }) => (
                   <Text style={{ color, fontSize: 18 }}>⬡</Text>
                 ),
-                tabBarStyle: showTab ? TAB_BAR_STYLE : { display: 'none' },
+                tabBarStyle: showTab ? TAB_BAR_STYLE : TAB_BAR_HIDDEN,
               };
             }}
           />

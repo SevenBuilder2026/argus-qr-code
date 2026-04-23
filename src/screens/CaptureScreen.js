@@ -91,6 +91,7 @@ export default function CaptureScreen({ navigation }) {
   const qualityAnim = useRef(new Animated.Value(0)).current;
   const frameAnim = useRef(new Animated.Value(0)).current;
   const qrOpacity = useRef(new Animated.Value(0)).current;
+  const overflowAnim = useRef(new Animated.Value(0)).current;
   // Last known areaFrac: lets us keep "Move back" hint after scanner dropout
   const lastAreaFracRef = useRef(0);
 
@@ -152,20 +153,39 @@ export default function CaptureScreen({ navigation }) {
       clearInterval(hapticTimerRef.current);
       hapticTimerRef.current = null;
     }
-    const interval = scoreToInterval(quality);
-    if (interval > 0) {
+    if (areaFrac > IDEAL_MAX_AREA_FRAC) {
+      // Too close: heavy slow thud — unambiguously different from the approach ramp.
       hapticTimerRef.current = setInterval(() => {
-        Haptics.impactAsync(
-          quality > 70
-            ? Haptics.ImpactFeedbackStyle.Medium
-            : Haptics.ImpactFeedbackStyle.Light
-        );
-      }, interval);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      }, 600);
+    } else {
+      const interval = scoreToInterval(quality);
+      if (interval > 0) {
+        hapticTimerRef.current = setInterval(() => {
+          Haptics.impactAsync(
+            quality > 70
+              ? Haptics.ImpactFeedbackStyle.Medium
+              : Haptics.ImpactFeedbackStyle.Light
+          );
+        }, interval);
+      }
     }
     return () => {
       if (hapticTimerRef.current) clearInterval(hapticTimerRef.current);
     };
-  }, [quality]);
+  }, [quality, areaFrac]);
+
+  useEffect(() => {
+    const OVERFLOW_MAX_PX = 24;
+    const target = areaFrac > IDEAL_MAX_AREA_FRAC
+      ? Math.min((areaFrac - IDEAL_MAX_AREA_FRAC) / 0.06, 1) * OVERFLOW_MAX_PX
+      : 0;
+    Animated.timing(overflowAnim, {
+      toValue: target,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+  }, [areaFrac]);
 
   // Hint: areaFrac > IDEAL_MAX checked first — survives quality decay to 0.
   // "Zooming in…" replaces "Move closer" when auto-zoom is active.
@@ -281,7 +301,7 @@ export default function CaptureScreen({ navigation }) {
     );
   }
 
-  const showZoomBadge = zoom > 0.04;
+  const showZoomBadge = zoom > 0.01;
   // Approximate display multiplier: assumes 0.25 zoom ≈ 2.5× on a typical phone
   // zoom=0.1 (ZOOM_MAX) ≈ 1.5× on most phones
   const zoomDisplay = (1 + zoom * 5).toFixed(1);
@@ -387,11 +407,14 @@ export default function CaptureScreen({ navigation }) {
       <View style={styles.bottomHud}>
         <Text style={styles.hintText}>{hint}</Text>
 
-        <View style={styles.barTrack}>
-          <Animated.View
-            style={[styles.barFill, { flex: qualityAnim, backgroundColor: barColor }]}
-          />
-          <Animated.View style={{ flex: Animated.subtract(1, qualityAnim) }} />
+        <View style={styles.barRow}>
+          <View style={styles.barTrack}>
+            <Animated.View
+              style={[styles.barFill, { flex: qualityAnim, backgroundColor: barColor }]}
+            />
+            <Animated.View style={{ flex: Animated.subtract(1, qualityAnim) }} />
+          </View>
+          <Animated.View style={[styles.barOverflow, { width: overflowAnim }]} />
         </View>
 
         <Text style={styles.noShutter}>Scans automatically when aligned</Text>
@@ -468,7 +491,7 @@ const styles = StyleSheet.create({
   zoomBadge: {
     width: 48, height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -492,8 +515,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
-  barTrack: {
+  barRow: {
     width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  barTrack: {
+    flex: 1,
     height: 4,
     backgroundColor: colors.textMuted,
     borderRadius: 2,
@@ -501,6 +529,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   barFill: { height: 4, borderRadius: 2 },
+  barOverflow: {
+    height: 4,
+    backgroundColor: colors.fake,
+    borderRadius: 2,
+    marginLeft: 2,
+  },
   noShutter: {
     color: colors.textSecondary,
     fontSize: fonts.small,

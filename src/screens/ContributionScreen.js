@@ -144,7 +144,7 @@ export default function ContributionScreen({ navigation, route }) {
         <Animated.View
           style={[
             styles.levelUpBanner,
-            { opacity: levelUpFadeAnim, transform: [{ scale: levelUpScaleAnim }] },
+            { paddingTop: insets.top + 14, opacity: levelUpFadeAnim, transform: [{ scale: levelUpScaleAnim }] },
           ]}
         >
           <Text style={styles.levelUpText}>

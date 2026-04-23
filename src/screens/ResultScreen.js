@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import { awardScan } from '../store/xpStore';
 import XpOverlay from '../components/XpOverlay';
@@ -59,6 +60,7 @@ export default function ResultScreen({ navigation, route }) {
   const cfg = statusConfig(result?.status ?? 'authentic');
   const { width: W, height: H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
 
   // Badge entrance animations
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
@@ -225,7 +227,7 @@ export default function ResultScreen({ navigation, route }) {
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.container, { opacity: fadeAnim, paddingBottom: tabBarHeight + 28 }]}>
 
           {/* Status badge */}
           <Animated.View style={[styles.badgeWrap, { transform: [{ scale: scaleAnim }] }]}>
@@ -320,7 +322,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
     paddingTop: 32,
-    paddingBottom: 28,
     gap: 14,
   },
 

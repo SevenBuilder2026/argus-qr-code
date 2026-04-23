@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import * as Haptics from 'expo-haptics';
 import XpOverlay from '../components/XpOverlay';
 import { colors, fonts, radius } from '../theme';
@@ -25,6 +26,7 @@ export default function ContributionScreen({ navigation, route }) {
   } = route.params ?? {};
 
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const storeName = store?.name ?? 'Pharmacie du Maupas';
   const trustScore = store?.trust_score ?? 94;
@@ -158,7 +160,7 @@ export default function ContributionScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-        <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.container, { opacity: fadeAnim, paddingBottom: tabBarHeight + 32 }]}>
 
           <View style={styles.noticeCard}>
             <Animated.View style={[styles.dot, { opacity: dotAnim }]} />
@@ -239,7 +241,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 28,
     paddingTop: 36,
-    paddingBottom: 32,
     gap: 16,
   },
 

@@ -20,6 +20,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TAB_BAR_STYLE = {
+  position: 'absolute',
   backgroundColor: colors.bg,
   borderTopColor: colors.bgCardBorder,
   paddingBottom: 6,
@@ -27,10 +28,7 @@ const TAB_BAR_STYLE = {
 };
 
 const TAB_BAR_HIDDEN = {
-  backgroundColor: colors.bg,
-  borderTopColor: colors.bg,
-  height: 0,
-  overflow: 'hidden',
+  display: 'none',
 };
 
 // Tab bar only appears once the user has completed a scan (Result + onward)

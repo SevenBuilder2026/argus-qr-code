@@ -108,6 +108,10 @@ export default function CaptureScreen({ navigation }) {
   const triggerStartRef = useRef(null);
   const hapticTimerRef = useRef(null);
   const triggeredRef = useRef(false);
+  // Track whether the QR is actively being detected right now (not decaying)
+  const [qrActive, setQrActive] = useState(false);
+  const qrActiveRef = useRef(false);
+  const entryHapticFiredRef = useRef(false);
   const qualityAnim = useRef(new Animated.Value(0)).current;
   const frameAnim = useRef(new Animated.Value(0)).current;
   const qrOpacity = useRef(new Animated.Value(0)).current;
@@ -173,27 +177,30 @@ export default function CaptureScreen({ navigation }) {
       clearInterval(hapticTimerRef.current);
       hapticTimerRef.current = null;
     }
-    if (areaFrac > IDEAL_MAX_AREA_FRAC) {
-      // Too close: heavy slow thud — unambiguously different from the approach ramp.
+    // No QR in frame — no haptics (even during quality decay)
+    if (!qrActive) return;
+
+    // One-shot entry tick when QR first enters viewport
+    if (!entryHapticFiredRef.current) {
+      entryHapticFiredRef.current = true;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+
+    // Ongoing periodic ticks — frequency increases as alignment improves
+    const interval = scoreToInterval(quality);
+    if (interval > 0) {
       hapticTimerRef.current = setInterval(() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      }, 600);
-    } else {
-      const interval = scoreToInterval(quality);
-      if (interval > 0) {
-        hapticTimerRef.current = setInterval(() => {
-          Haptics.impactAsync(
-            quality > 70
-              ? Haptics.ImpactFeedbackStyle.Medium
-              : Haptics.ImpactFeedbackStyle.Light
-          );
-        }, interval);
-      }
+        Haptics.impactAsync(
+          quality > 70
+            ? Haptics.ImpactFeedbackStyle.Medium
+            : Haptics.ImpactFeedbackStyle.Light
+        );
+      }, interval);
     }
     return () => {
       if (hapticTimerRef.current) clearInterval(hapticTimerRef.current);
     };
-  }, [quality, areaFrac]);
+  }, [quality, qrActive]);
 
   useEffect(() => {
     const OVERFLOW_MAX_PX = 24;
@@ -229,6 +236,11 @@ export default function CaptureScreen({ navigation }) {
       const { score: q, areaFrac: frac } = computeQuality(bounds, SCREEN_W, SCREEN_H);
       setQuality(q);
       setAreaFrac(frac);
+      if (!qrActiveRef.current) {
+        qrActiveRef.current = true;
+        entryHapticFiredRef.current = false;
+        setQrActive(true);
+      }
       setIsTooClose(frac >= IDEAL_MIN_AREA_FRAC * 0.8);
       lastAreaFracRef.current = frac;
 
@@ -279,6 +291,8 @@ export default function CaptureScreen({ navigation }) {
 
     noDetectTimer.current = setTimeout(() => {
       if (!triggeredRef.current) {
+        qrActiveRef.current = false;
+        setQrActive(false);
         setQuality((q) => Math.max(0, q - 15));
         triggerStartRef.current = null;
         Animated.timing(qrOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(

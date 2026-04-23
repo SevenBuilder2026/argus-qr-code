@@ -117,18 +117,19 @@ export default function CaptureScreen({ navigation }) {
   const frameAnim = useRef(new Animated.Value(0)).current;
   const qrOpacity = useRef(new Animated.Value(0)).current;
   const overflowAnim = useRef(new Animated.Value(0)).current;
-  // Pulse animation: pulseOffset grows/shrinks all four edges equally (pixels).
-  // Derived left/top/width/height track QR bounds + offset without re-renders.
-  // No scale transform → border widths never change visually.
+  // Pulse animation: pulseOffset moves all four edges equally (pixels, no size change on any container).
+  // Each corner is positioned individually via animated arithmetic so nothing ever scales.
   const pulseOffset = useRef(new Animated.Value(0)).current;
   const pulseX = useRef(new Animated.Value(0)).current;
   const pulseY = useRef(new Animated.Value(0)).current;
   const pulseW = useRef(new Animated.Value(100)).current;
   const pulseH = useRef(new Animated.Value(100)).current;
-  const animLeft   = useRef(Animated.subtract(pulseX, pulseOffset)).current;
-  const animTop    = useRef(Animated.subtract(pulseY, pulseOffset)).current;
-  const animWidth  = useRef(Animated.add(pulseW, Animated.multiply(pulseOffset, 2))).current;
-  const animHeight = useRef(Animated.add(pulseH, Animated.multiply(pulseOffset, 2))).current;
+  // Stable edge nodes — top/left edges move by -offset, right/bottom base nodes by +offset.
+  // sz is subtracted from right/bottom fresh each render (tiny node, only recreated on bounds change).
+  const cornerTopEdge   = useRef(Animated.subtract(pulseY, pulseOffset)).current;
+  const cornerLeftEdge  = useRef(Animated.subtract(pulseX, pulseOffset)).current;
+  const cornerRightBase = useRef(Animated.add(Animated.add(pulseX, pulseW), pulseOffset)).current;
+  const cornerBotBase   = useRef(Animated.add(Animated.add(pulseY, pulseH), pulseOffset)).current;
   const pulseDirectionRef = useRef(null); // 'expand' | 'contract' | null
   const pulseLoopRef = useRef(null);
   // Last known areaFrac: lets us keep "Move back" hint after scanner dropout
@@ -334,7 +335,7 @@ export default function CaptureScreen({ navigation }) {
         triggerStartRef.current = null;
       }
     },
-    [navigation, qrOpacity, animateZoomTo, startPulse, stopPulse, pulseX, pulseY, pulseW, pulseH, pulseOffset]
+    [navigation, qrOpacity, animateZoomTo, startPulse, stopPulse, pulseX, pulseY, pulseW, pulseH]
   );
 
   // Two-stage decay when scanner goes silent:
@@ -430,53 +431,46 @@ export default function CaptureScreen({ navigation }) {
         </Animated.View>
       </View>}
 
-      {/* Live QR corner brackets at actual detected bounds.
-          Position/size are Animated.Values (setValue, no re-render).
-          Scale pulse shares the same JS thread (useNativeDriver:false). */}
+      {/* Live QR corner brackets — each positioned independently via animated arithmetic.
+          No parent view changes size, so nothing rasterizes/scales and borders stay constant. */}
       {qrBounds && (
         <Animated.View
           style={[StyleSheet.absoluteFill, { opacity: qrOpacity }]}
           pointerEvents="none"
         >
-          <Animated.View
-            style={{
-              position: 'absolute',
-              left: animLeft,
-              top: animTop,
-              width: animWidth,
-              height: animHeight,
-            }}
-          >
-            {(() => {
-              const sz = Math.max(12, Math.min(32, qrBounds.w * 0.18));
-              const color = qrBoundsColor(areaFrac);
-              return [
-                { corner: 'tl', pos: { top: 0,    left: 0  } },
-                { corner: 'tr', pos: { top: 0,    right: 0 } },
-                { corner: 'bl', pos: { bottom: 0, left: 0  } },
-                { corner: 'br', pos: { bottom: 0, right: 0 } },
-              ].map(({ corner, pos }, i) => (
-                <View
-                  key={i}
-                  style={{
-                    position: 'absolute',
-                    width: sz,
-                    height: sz,
-                    ...pos,
-                    borderColor: color,
-                    borderTopWidth:          (corner === 'tl' || corner === 'tr') ? 2.5 : 0,
-                    borderBottomWidth:       (corner === 'bl' || corner === 'br') ? 2.5 : 0,
-                    borderLeftWidth:         (corner === 'tl' || corner === 'bl') ? 2.5 : 0,
-                    borderRightWidth:        (corner === 'tr' || corner === 'br') ? 2.5 : 0,
-                    borderTopLeftRadius:     corner === 'tl' ? 3 : 0,
-                    borderTopRightRadius:    corner === 'tr' ? 3 : 0,
-                    borderBottomLeftRadius:  corner === 'bl' ? 3 : 0,
-                    borderBottomRightRadius: corner === 'br' ? 3 : 0,
-                  }}
-                />
-              ));
-            })()}
-          </Animated.View>
+          {(() => {
+            const sz = Math.max(12, Math.min(32, qrBounds.w * 0.18));
+            const color = qrBoundsColor(areaFrac);
+            // right/bottom edges subtract sz so the bracket sits inside the frame corner
+            const rightEdge = Animated.subtract(cornerRightBase, sz);
+            const botEdge   = Animated.subtract(cornerBotBase,   sz);
+            return [
+              { top: cornerTopEdge, left: cornerLeftEdge, bT: true, bL: true, rTL: true },
+              { top: cornerTopEdge, left: rightEdge,      bT: true, bR: true, rTR: true },
+              { top: botEdge,       left: cornerLeftEdge, bB: true, bL: true, rBL: true },
+              { top: botEdge,       left: rightEdge,      bB: true, bR: true, rBR: true },
+            ].map((c, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  position: 'absolute',
+                  width: sz,
+                  height: sz,
+                  top: c.top,
+                  left: c.left,
+                  borderColor: color,
+                  borderTopWidth:          c.bT ? 2.5 : 0,
+                  borderBottomWidth:       c.bB ? 2.5 : 0,
+                  borderLeftWidth:         c.bL ? 2.5 : 0,
+                  borderRightWidth:        c.bR ? 2.5 : 0,
+                  borderTopLeftRadius:     c.rTL ? 3 : 0,
+                  borderTopRightRadius:    c.rTR ? 3 : 0,
+                  borderBottomLeftRadius:  c.rBL ? 3 : 0,
+                  borderBottomRightRadius: c.rBR ? 3 : 0,
+                }}
+              />
+            ));
+          })()}
         </Animated.View>
       )}
 

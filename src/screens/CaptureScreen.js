@@ -6,6 +6,7 @@ import {
   Dimensions,
   TouchableOpacity,
   Animated,
+  Easing,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -116,6 +117,20 @@ export default function CaptureScreen({ navigation }) {
   const frameAnim = useRef(new Animated.Value(0)).current;
   const qrOpacity = useRef(new Animated.Value(0)).current;
   const overflowAnim = useRef(new Animated.Value(0)).current;
+  // Pulse animation: pulseOffset grows/shrinks all four edges equally (pixels).
+  // Derived left/top/width/height track QR bounds + offset without re-renders.
+  // No scale transform → border widths never change visually.
+  const pulseOffset = useRef(new Animated.Value(0)).current;
+  const pulseX = useRef(new Animated.Value(0)).current;
+  const pulseY = useRef(new Animated.Value(0)).current;
+  const pulseW = useRef(new Animated.Value(100)).current;
+  const pulseH = useRef(new Animated.Value(100)).current;
+  const animLeft   = useRef(Animated.subtract(pulseX, pulseOffset)).current;
+  const animTop    = useRef(Animated.subtract(pulseY, pulseOffset)).current;
+  const animWidth  = useRef(Animated.add(pulseW, Animated.multiply(pulseOffset, 2))).current;
+  const animHeight = useRef(Animated.add(pulseH, Animated.multiply(pulseOffset, 2))).current;
+  const pulseDirectionRef = useRef(null); // 'expand' | 'contract' | null
+  const pulseLoopRef = useRef(null);
   // Last known areaFrac: lets us keep "Move back" hint after scanner dropout
   const lastAreaFracRef = useRef(0);
 
@@ -146,10 +161,44 @@ export default function CaptureScreen({ navigation }) {
     zoomRafRef.current = requestAnimationFrame(tick);
   }, []);
 
+  const stopPulse = useCallback(() => {
+    if (pulseLoopRef.current) {
+      pulseLoopRef.current.stop();
+      pulseLoopRef.current = null;
+    }
+    pulseDirectionRef.current = null;
+    Animated.timing(pulseOffset, { toValue: 0, duration: 150, useNativeDriver: false }).start();
+  }, [pulseOffset]);
+
+  // qrW: current QR width in screen pixels, used to cap the offset at frame size.
+  const startPulse = useCallback((direction, qrW) => {
+    if (pulseDirectionRef.current === direction) return;
+    if (pulseLoopRef.current) {
+      pulseLoopRef.current.stop();
+      pulseLoopRef.current = null;
+    }
+    pulseDirectionRef.current = direction;
+    // Pixel offset applied to each edge (positive = expand outward, negative = contract inward).
+    // Cap expand so overlay never exceeds FRAME_W; cap contract so it never shrinks below FRAME_W.
+    const maxOffset = direction === 'expand'
+      ? (Math.min(2.0, FRAME_W / qrW) - 1) * 0.5 * qrW   // positive
+      : (Math.max(0.75, FRAME_W / qrW) - 1) * 0.5 * qrW; // negative
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseOffset, { toValue: maxOffset, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        Animated.timing(pulseOffset, { toValue: 0, duration: 0, useNativeDriver: false }),
+        Animated.delay(400),
+      ])
+    );
+    pulseLoopRef.current = loop;
+    loop.start();
+  }, [pulseOffset]);
+
   // Cleanup RAF on unmount
   useEffect(() => {
     return () => {
       if (zoomRafRef.current) cancelAnimationFrame(zoomRafRef.current);
+      if (pulseLoopRef.current) pulseLoopRef.current.stop();
     };
   }, []);
 
@@ -244,6 +293,10 @@ export default function CaptureScreen({ navigation }) {
       setIsTooClose(frac >= IDEAL_MIN_AREA_FRAC * 0.8);
       lastAreaFracRef.current = frac;
 
+      if (frac < IDEAL_MIN_AREA_FRAC) startPulse('expand', bounds.size.width);
+      else if (frac > IDEAL_MAX_AREA_FRAC) startPulse('contract', bounds.size.width);
+      else stopPulse();
+
       // Zoom control — only zoom IN when QR is detected but too small.
       // We never zoom OUT based on areaFrac alone (that would oscillate).
       // Zoom only resets when the QR disappears (long-decay below).
@@ -260,6 +313,11 @@ export default function CaptureScreen({ navigation }) {
           w: bounds.size.width,
           h: bounds.size.height,
         });
+        // Update pulse layer position without triggering re-render
+        pulseX.setValue(bounds.origin.x);
+        pulseY.setValue(bounds.origin.y);
+        pulseW.setValue(bounds.size.width);
+        pulseH.setValue(bounds.size.height);
         Animated.timing(qrOpacity, { toValue: 1, duration: 100, useNativeDriver: true }).start();
       }
 
@@ -276,7 +334,7 @@ export default function CaptureScreen({ navigation }) {
         triggerStartRef.current = null;
       }
     },
-    [navigation, qrOpacity, animateZoomTo]
+    [navigation, qrOpacity, animateZoomTo, startPulse, stopPulse, pulseX, pulseY, pulseW, pulseH, pulseOffset]
   );
 
   // Two-stage decay when scanner goes silent:
@@ -295,6 +353,7 @@ export default function CaptureScreen({ navigation }) {
         setQrActive(false);
         setQuality((q) => Math.max(0, q - 15));
         triggerStartRef.current = null;
+        stopPulse();
         Animated.timing(qrOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(
           () => setQrBounds(null)
         );
@@ -312,7 +371,7 @@ export default function CaptureScreen({ navigation }) {
         animateZoomTo(0); // release zoom — user has walked away
       }
     }, 1800);
-  }, [qrOpacity, animateZoomTo]);
+  }, [qrOpacity, animateZoomTo, stopPulse]);
 
   const frameBorderColor = frameAnim.interpolate({
     inputRange: [0, 1],
@@ -371,41 +430,53 @@ export default function CaptureScreen({ navigation }) {
         </Animated.View>
       </View>}
 
-      {/* Live QR corner brackets at actual detected bounds */}
+      {/* Live QR corner brackets at actual detected bounds.
+          Position/size are Animated.Values (setValue, no re-render).
+          Scale pulse shares the same JS thread (useNativeDriver:false). */}
       {qrBounds && (
         <Animated.View
           style={[StyleSheet.absoluteFill, { opacity: qrOpacity }]}
           pointerEvents="none"
         >
-          {(() => {
-            const sz = Math.max(12, Math.min(32, qrBounds.w * 0.18));
-            return [
-              { top: qrBounds.y,              left: qrBounds.x,              tl: true },
-              { top: qrBounds.y,              left: qrBounds.x + qrBounds.w, tr: true },
-              { top: qrBounds.y + qrBounds.h, left: qrBounds.x,              bl: true },
-              { top: qrBounds.y + qrBounds.h, left: qrBounds.x + qrBounds.w, br: true },
-            ].map((c, i) => (
-              <Animated.View
-                key={i}
-                style={{
-                  position: 'absolute',
-                  width: sz,
-                  height: sz,
-                  top: c.top + (c.bl || c.br ? -sz : 0),
-                  left: c.left + (c.tr || c.br ? -sz : 0),
-                  borderColor: qrBoundsColor(areaFrac),
-                  borderTopWidth:    (c.tl || c.tr) ? 2.5 : 0,
-                  borderBottomWidth: (c.bl || c.br) ? 2.5 : 0,
-                  borderLeftWidth:   (c.tl || c.bl) ? 2.5 : 0,
-                  borderRightWidth:  (c.tr || c.br) ? 2.5 : 0,
-                  borderTopLeftRadius:     c.tl ? 3 : 0,
-                  borderTopRightRadius:    c.tr ? 3 : 0,
-                  borderBottomLeftRadius:  c.bl ? 3 : 0,
-                  borderBottomRightRadius: c.br ? 3 : 0,
-                }}
-              />
-            ));
-          })()}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              left: animLeft,
+              top: animTop,
+              width: animWidth,
+              height: animHeight,
+            }}
+          >
+            {(() => {
+              const sz = Math.max(12, Math.min(32, qrBounds.w * 0.18));
+              const color = qrBoundsColor(areaFrac);
+              return [
+                { corner: 'tl', pos: { top: 0,    left: 0  } },
+                { corner: 'tr', pos: { top: 0,    right: 0 } },
+                { corner: 'bl', pos: { bottom: 0, left: 0  } },
+                { corner: 'br', pos: { bottom: 0, right: 0 } },
+              ].map(({ corner, pos }, i) => (
+                <View
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    width: sz,
+                    height: sz,
+                    ...pos,
+                    borderColor: color,
+                    borderTopWidth:          (corner === 'tl' || corner === 'tr') ? 2.5 : 0,
+                    borderBottomWidth:       (corner === 'bl' || corner === 'br') ? 2.5 : 0,
+                    borderLeftWidth:         (corner === 'tl' || corner === 'bl') ? 2.5 : 0,
+                    borderRightWidth:        (corner === 'tr' || corner === 'br') ? 2.5 : 0,
+                    borderTopLeftRadius:     corner === 'tl' ? 3 : 0,
+                    borderTopRightRadius:    corner === 'tr' ? 3 : 0,
+                    borderBottomLeftRadius:  corner === 'bl' ? 3 : 0,
+                    borderBottomRightRadius: corner === 'br' ? 3 : 0,
+                  }}
+                />
+              ));
+            })()}
+          </Animated.View>
         </Animated.View>
       )}
 
@@ -495,10 +566,10 @@ const styles = StyleSheet.create({
     height: 24,
     borderColor: colors.accent,
   },
-  corner_tl: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: radius.sm },
-  corner_tr: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: radius.sm },
-  corner_bl: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: radius.sm },
-  corner_br: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: radius.sm },
+  corner_tl: { top: 0, left: 0, borderTopWidth: 2.5, borderLeftWidth: 2.5, borderTopLeftRadius: radius.sm },
+  corner_tr: { top: 0, right: 0, borderTopWidth: 2.5, borderRightWidth: 2.5, borderTopRightRadius: radius.sm },
+  corner_bl: { bottom: 0, left: 0, borderBottomWidth: 2.5, borderLeftWidth: 2.5, borderBottomLeftRadius: radius.sm },
+  corner_br: { bottom: 0, right: 0, borderBottomWidth: 2.5, borderRightWidth: 2.5, borderBottomRightRadius: radius.sm },
 
   topBar: {
     position: 'absolute',

@@ -13,8 +13,8 @@ import { colors, fonts, radius } from '../theme';
 import { setForceMode } from '../mock/api';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const FRAME_W = SCREEN_W * 0.72;
-const FRAME_H = FRAME_W * 1.15;
+const FRAME_W = SCREEN_W * 0.31;
+const FRAME_H = FRAME_W;
 const VIGNETTE_TOP = 160;
 const VIGNETTE_BOTTOM = 220;
 // Calibrated for iPhone 13 mini + 2 cm × 2 cm QR code:
@@ -75,10 +75,30 @@ function computeQuality(bounds, screenW, screenH) {
   };
 }
 
+// RGB components of the three distance-state colors (matches theme.js)
+const C_FAR   = [252, 211,  77]; // amber-300 — too far (lighter than suspicious)
+const C_IDEAL = [ 34, 197,  94]; // colors.authentic  — ideal distance
+const C_CLOSE = [239,  68,  68]; // colors.fake       — too close
+
+function lerpRgb(a, b, t) {
+  const s = Math.max(0, Math.min(1, t));
+  return `rgb(${Math.round(a[0]+(b[0]-a[0])*s)},${Math.round(a[1]+(b[1]-a[1])*s)},${Math.round(a[2]+(b[2]-a[2])*s)})`;
+}
+
+function qrBoundsColor(areaFrac) {
+  if (areaFrac <= 0) return lerpRgb(C_IDEAL, C_IDEAL, 1);
+  if (areaFrac < IDEAL_MIN_AREA_FRAC)
+    return lerpRgb(C_FAR, C_IDEAL, areaFrac / IDEAL_MIN_AREA_FRAC);
+  if (areaFrac > IDEAL_MAX_AREA_FRAC)
+    return `rgb(${C_CLOSE.join(',')})`;
+  return lerpRgb(C_IDEAL, C_IDEAL, 1);
+}
+
 export default function CaptureScreen({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [quality, setQuality] = useState(0);
   const [areaFrac, setAreaFrac] = useState(0);
+  const [isTooClose, setIsTooClose] = useState(false);
   const [qrBounds, setQrBounds] = useState(null);
   const [hint, setHint] = useState('Point at the product label');
   // Camera zoom state — updated via RAF lerp so the transition is smooth
@@ -209,6 +229,7 @@ export default function CaptureScreen({ navigation }) {
       const { score: q, areaFrac: frac } = computeQuality(bounds, SCREEN_W, SCREEN_H);
       setQuality(q);
       setAreaFrac(frac);
+      setIsTooClose(frac >= IDEAL_MIN_AREA_FRAC * 0.8);
       lastAreaFracRef.current = frac;
 
       // Zoom control — only zoom IN when QR is detected but too small.
@@ -272,6 +293,7 @@ export default function CaptureScreen({ navigation }) {
     noDetectTimerFull.current = setTimeout(() => {
       if (!triggeredRef.current) {
         setAreaFrac(0);
+        setIsTooClose(false);
         lastAreaFracRef.current = 0;
         animateZoomTo(0); // release zoom — user has walked away
       }
@@ -323,19 +345,17 @@ export default function CaptureScreen({ navigation }) {
       <View style={styles.vignetteTop} />
       <View style={styles.vignetteBottom} />
 
-      {/* Guide frame — hidden while actively tracking a QR code */}
-      {!qrBounds && (
-        <View style={styles.frameWrap}>
-          <Animated.View style={[styles.frame, { borderColor: frameBorderColor }]}>
-            {['tl', 'tr', 'bl', 'br'].map((c) => (
-              <Animated.View
-                key={c}
-                style={[styles.corner, styles[`corner_${c}`], { borderColor: frameBorderColor }]}
-              />
-            ))}
-          </Animated.View>
-        </View>
-      )}
+      {/* Guide frame — hidden when QR is too close */}
+      {!isTooClose && <View style={styles.frameWrap}>
+        <Animated.View style={[styles.frame, { borderColor: frameBorderColor }]}>
+          {['tl', 'tr', 'bl', 'br'].map((c) => (
+            <Animated.View
+              key={c}
+              style={[styles.corner, styles[`corner_${c}`], { borderColor: frameBorderColor }]}
+            />
+          ))}
+        </Animated.View>
+      </View>}
 
       {/* Live QR corner brackets at actual detected bounds */}
       {qrBounds && (
@@ -359,7 +379,7 @@ export default function CaptureScreen({ navigation }) {
                   height: sz,
                   top: c.top + (c.bl || c.br ? -sz : 0),
                   left: c.left + (c.tr || c.br ? -sz : 0),
-                  borderColor: frameBorderColor,
+                  borderColor: qrBoundsColor(areaFrac),
                   borderTopWidth:    (c.tl || c.tr) ? 2.5 : 0,
                   borderBottomWidth: (c.bl || c.br) ? 2.5 : 0,
                   borderLeftWidth:   (c.tl || c.bl) ? 2.5 : 0,

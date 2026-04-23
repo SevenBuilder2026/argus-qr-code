@@ -8,6 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { loadState, getCurrentLevel } from '../store/xpStore';
 import { QUESTS } from '../data/quests';
 import { LEVELS } from '../data/levels';
@@ -26,6 +27,7 @@ const STREAK_PRIORITY = ['daily', 'weekly', 'monthly', 'yearly'];
 
 export default function ProfileScreen() {
   const [gameState, setGameState] = useState(null);
+  const tabBarHeight = useBottomTabBarHeight();
 
   const refresh = useCallback(async () => {
     const s = await loadState();
@@ -64,7 +66,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
       <XpOverlay xpTotal={gameState.xpTotal} />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: tabBarHeight + 20 }]} showsVerticalScrollIndicator={false}>
 
         {/* Identity */}
         <View style={styles.section}>
@@ -147,7 +149,7 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  scroll: { paddingHorizontal: 20, paddingTop: 32, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingTop: 32 },
 
   section: { alignItems: 'center', marginBottom: 16, gap: 8 },
   levelName: {

@@ -6,7 +6,6 @@ import {
   Dimensions,
   TouchableOpacity,
   Animated,
-  Easing,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -131,7 +130,9 @@ export default function CaptureScreen({ navigation }) {
   const cornerRightBase = useRef(Animated.add(Animated.add(pulseX, pulseW), pulseOffset)).current;
   const cornerBotBase   = useRef(Animated.add(Animated.add(pulseY, pulseH), pulseOffset)).current;
   const pulseDirectionRef = useRef(null); // 'expand' | 'contract' | null
-  const pulseLoopRef = useRef(null);
+  const pulseGenRef = useRef(0);          // belt-and-suspenders: invalidates stale rAF callbacks
+  const sweepRafRef  = useRef(null);      // current rAF handle (explicit cancel)
+  const sweepPauseRef = useRef(null);     // current inter-sweep setTimeout handle
   // Last known areaFrac: lets us keep "Move back" hint after scanner dropout
   const lastAreaFracRef = useRef(0);
 
@@ -163,43 +164,65 @@ export default function CaptureScreen({ navigation }) {
   }, []);
 
   const stopPulse = useCallback(() => {
-    if (pulseLoopRef.current) {
-      pulseLoopRef.current.stop();
-      pulseLoopRef.current = null;
-    }
+    pulseGenRef.current++;
     pulseDirectionRef.current = null;
-    Animated.timing(pulseOffset, { toValue: 0, duration: 150, useNativeDriver: false }).start();
+    if (sweepRafRef.current)   { cancelAnimationFrame(sweepRafRef.current);  sweepRafRef.current  = null; }
+    if (sweepPauseRef.current) { clearTimeout(sweepPauseRef.current);         sweepPauseRef.current = null; }
+    pulseOffset.setValue(0);
   }, [pulseOffset]);
 
-  // qrW: current QR width in screen pixels, used to cap the offset at frame size.
+  // Uses a manual rAF loop — same pattern as the zoom animation — so there are zero
+  // Animated.timing internal-state races.  Explicit cancelAnimationFrame/clearTimeout
+  // make cancellation unconditional: no callbacks can fire after stopPulse or a direction flip.
   const startPulse = useCallback((direction, qrW) => {
     if (pulseDirectionRef.current === direction) return;
-    if (pulseLoopRef.current) {
-      pulseLoopRef.current.stop();
-      pulseLoopRef.current = null;
-    }
     pulseDirectionRef.current = direction;
-    // Pixel offset applied to each edge (positive = expand outward, negative = contract inward).
-    // Cap expand so overlay never exceeds FRAME_W; cap contract so it never shrinks below FRAME_W.
+
+    // Cancel whatever was running before
+    if (sweepRafRef.current)   { cancelAnimationFrame(sweepRafRef.current);  sweepRafRef.current  = null; }
+    if (sweepPauseRef.current) { clearTimeout(sweepPauseRef.current);         sweepPauseRef.current = null; }
+    pulseOffset.setValue(0); // snap to neutral; every sweep starts from 0
+
+    // Expand ≥+15 px outward, contract ≤-15 px inward.
+    // Clamp ensures correct sign even at the IDEAL_MAX boundary where FRAME_W/qrW > 1.
     const maxOffset = direction === 'expand'
-      ? (Math.min(2.0, FRAME_W / qrW) - 1) * 0.5 * qrW   // positive
-      : (Math.max(0.75, FRAME_W / qrW) - 1) * 0.5 * qrW; // negative
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseOffset, { toValue: maxOffset, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-        Animated.timing(pulseOffset, { toValue: 0, duration: 0, useNativeDriver: false }),
-        Animated.delay(400),
-      ])
-    );
-    pulseLoopRef.current = loop;
-    loop.start();
+      ? Math.max(15,  (Math.min(2.0, FRAME_W / qrW) - 1) * 0.5 * qrW)
+      : Math.min(-15, (Math.max(0.75, FRAME_W / qrW) - 1) * 0.5 * qrW);
+
+    const gen = ++pulseGenRef.current;
+    const DURATION = 500; // ms for one sweep
+
+    const runSweep = () => {
+      if (pulseGenRef.current !== gen) return;
+      let t0 = null;
+      const frame = (ts) => {
+        if (pulseGenRef.current !== gen) { sweepRafRef.current = null; return; }
+        if (t0 === null) t0 = ts;
+        const p = Math.min(1, (ts - t0) / DURATION);
+        const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+        pulseOffset.setValue(maxOffset * eased);
+        if (p < 1) {
+          sweepRafRef.current = requestAnimationFrame(frame);
+        } else {
+          sweepRafRef.current = null;
+          pulseOffset.setValue(0); // instant snap back
+          if (pulseGenRef.current === gen) {
+            sweepPauseRef.current = setTimeout(runSweep, 400);
+          }
+        }
+      };
+      sweepRafRef.current = requestAnimationFrame(frame);
+    };
+    runSweep();
   }, [pulseOffset]);
 
-  // Cleanup RAF on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (zoomRafRef.current) cancelAnimationFrame(zoomRafRef.current);
-      if (pulseLoopRef.current) pulseLoopRef.current.stop();
+      if (zoomRafRef.current)    cancelAnimationFrame(zoomRafRef.current);
+      if (sweepRafRef.current)   cancelAnimationFrame(sweepRafRef.current);
+      if (sweepPauseRef.current) clearTimeout(sweepPauseRef.current);
+      pulseGenRef.current++;
     };
   }, []);
 
